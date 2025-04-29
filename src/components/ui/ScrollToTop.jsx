@@ -1,20 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
 
-// Inner component that uses navigation hooks
-function ScrollToTopInner() {
+// This component ensures that when we navigate to an anchor link,
+// the page scrolls to the correct position accounting for the fixed header
+function ScrollToTopContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   
   useEffect(() => {
-    // Scroll to top on page navigation (not hash changes)
-    if (!window.location.hash) {
-      window.scrollTo(0, 0);
-    }
-    
     // Function to handle hash changes
     const handleHashChange = () => {
       const hash = window.location.hash;
@@ -58,12 +53,10 @@ function ScrollToTopInner() {
   return null;
 }
 
-// This component ensures that when we navigate to an anchor link,
-// the page scrolls to the correct position accounting for the fixed header
 export default function ScrollToTop() {
   return (
     <Suspense fallback={null}>
-      <ScrollToTopInner />
+      <ScrollToTopContent />
     </Suspense>
   );
 } 

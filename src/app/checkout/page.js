@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getCartItems } from '@/utils/cart';
@@ -50,6 +50,15 @@ const CheckoutPage = () => {
   const router = useRouter();
 
   useEffect(() => {
+    const calculateTotals = (items) => {
+      const itemsSubtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      const calculatedTaxes = itemsSubtotal * 0.18; // 18% tax rate
+      
+      setSubtotal(itemsSubtotal);
+      setTaxes(calculatedTaxes);
+      setTotal(itemsSubtotal + calculatedTaxes - discount);
+    };
+
     const items = getCartItems();
     setCartItems(items);
     calculateTotals(items);
@@ -59,16 +68,7 @@ const CheckoutPage = () => {
     if (defaultAddress) {
       setSelectedAddress(defaultAddress.id);
     }
-  }, [addressList, calculateTotals]);
-
-  const calculateTotals = useCallback((items) => {
-    const itemsSubtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const calculatedTaxes = itemsSubtotal * 0.18; // 18% tax rate
-    
-    setSubtotal(itemsSubtotal);
-    setTaxes(calculatedTaxes);
-    setTotal(itemsSubtotal + calculatedTaxes - discount);
-  }, [discount]);
+  }, [addressList, discount]);
 
   const handleAddressSelection = (addressId) => {
     setSelectedAddress(addressId);
@@ -383,7 +383,7 @@ const CheckoutPage = () => {
                           <div className="ml-4 flex-1">
                             <p className="text-sm text-gray-900 font-medium">{item.name}</p>
                             <div className="text-xs text-gray-500 mt-1">
-                              {item.size && <span>Size: {item.size.toUpperCase()} {item.color && <span>&#124;</span>} </span>}
+                              {item.size && <span>Size: {item.size.toUpperCase()} {item.color && '|'} </span>}
                               {item.color && <span>Color: {item.color}</span>}
                             </div>
                             <div className="flex justify-between mt-2">

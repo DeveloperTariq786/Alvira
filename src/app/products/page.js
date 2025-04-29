@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/ui/ProductCard';
 import { newArrivalsProducts, bestsellers } from '@/constants/data';
-import { Suspense } from 'react';
 
-// Inner component that uses the searchParams
+// Main content component that uses useSearchParams
 const ProductsContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -488,7 +487,6 @@ const ProductsContent = () => {
   );
 };
 
-// Main wrapper component with Suspense
 const ProductsPage = () => {
   return (
     <main className="min-h-screen bg-white dark:bg-white">
