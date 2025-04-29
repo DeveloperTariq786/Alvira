@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,16 +29,16 @@ const PaymentPage = () => {
     const items = getCartItems();
     setCartItems(items);
     calculateTotals(items);
-  }, []);
+  }, [calculateTotals]);
 
-  const calculateTotals = (items) => {
+  const calculateTotals = useCallback((items) => {
     const itemsSubtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const calculatedTaxes = itemsSubtotal * 0.18; // 18% tax rate
     
     setSubtotal(itemsSubtotal);
     setTaxes(calculatedTaxes);
     setTotal(itemsSubtotal + calculatedTaxes - discount);
-  };
+  }, [discount]);
 
   const handlePaymentMethodChange = (method) => {
     setSelectedPaymentMethod(method);

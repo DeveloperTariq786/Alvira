@@ -84,7 +84,7 @@ const CartPage = () => {
                         
                         {(item.size || item.color) && (
                           <div className="mt-1 text-sm text-gray-600">
-                            {item.size && <span>Size: {item.size.toUpperCase()} {item.color && '|'} </span>}
+                            {item.size && <span>Size: {item.size.toUpperCase()} {item.color && <>&#124;</> } </span>}
                             {item.color && <span>Color: {item.color}</span>}
                           </div>
                         )}

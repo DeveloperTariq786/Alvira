@@ -7,6 +7,7 @@ import Footer from '@/components/layout/Footer';
 import { newArrivalsProducts, bestsellers } from '@/constants/data';
 import Link from 'next/link';
 import { addToCart } from '@/utils/cart';
+import Image from 'next/image';
 
 const ProductDetail = () => {
   const params = useParams();
@@ -354,10 +355,11 @@ const ProductDetail = () => {
           <div className="space-y-4">
             {/* Main Image */}
             <div className="relative h-[500px] md:h-[650px] bg-gray-50 overflow-hidden rounded">
-              <img 
+              <Image 
                 src={mainImage} 
                 alt={product.name} 
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
               />
               {product.isNew && (
                 <div className="absolute top-4 right-4 bg-[#c5a87f] text-white px-4 py-1 text-sm font-medium rounded">
@@ -374,10 +376,11 @@ const ProductDetail = () => {
                   className={`aspect-square border ${mainImage === thumb ? 'border-[#c5a87f]' : 'border-gray-200'} overflow-hidden rounded hover:border-[#c5a87f] transition-colors`}
                   onClick={() => handleThumbnailClick(thumb)}
                 >
-                  <img 
+                  <Image 
                     src={thumb} 
                     alt={`${product.name} thumbnail ${index + 1}`} 
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                 </button>
               ))}
