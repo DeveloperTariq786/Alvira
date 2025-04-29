@@ -6,8 +6,10 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/ui/ProductCard';
 import { newArrivalsProducts, bestsellers } from '@/constants/data';
+import { Suspense } from 'react';
 
-const ProductsPage = () => {
+// Inner component that uses the searchParams
+const ProductsContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
@@ -133,92 +135,201 @@ const ProductsPage = () => {
   };
 
   return (
-    <main className="min-h-screen bg-white dark:bg-white">
-      <Header />
-      <section className="container mx-auto py-20 px-4">
-        {/* Mobile Header */}
-        <div className="lg:hidden mb-6">
-          <div className="flex flex-col mb-4">
-            <div className="mb-4">
-              <h1 className="text-3xl font-display text-black">All Products</h1>
+    <section className="container mx-auto py-20 px-4">
+      {/* Mobile Header */}
+      <div className="lg:hidden mb-6">
+        <div className="flex flex-col mb-4">
+          <div className="mb-4">
+            <h1 className="text-3xl font-display text-black">All Products</h1>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center relative">
+              <span className="font-medium text-black">Sort:</span>
+              <button 
+                onClick={toggleSortDropdown}
+                className="bg-white dark:bg-white border border-gray-200 rounded px-3 py-2 flex items-center justify-between min-w-[100px] ml-2 text-black"
+              >
+                <span>{sortOption === 'newest' ? 'Newest' : 
+                       sortOption === 'price-low-high' ? 'Low to High' :
+                       'High to Low'}</span>
+                <svg 
+                  className="w-4 h-4 ml-1" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+              
+              {showSortDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-white border border-gray-200 rounded shadow-lg w-[160px] z-10">
+                  <ul>
+                    <li 
+                      className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'newest' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      onClick={() => handleSortChange('newest')}
+                    >
+                      <span className={sortOption === 'newest' ? 'font-medium' : ''}>Newest</span>
+                    </li>
+                    <li 
+                      className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-low-high' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      onClick={() => handleSortChange('price-low-high')}
+                    >
+                      Low to High
+                    </li>
+                    <li 
+                      className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-high-low' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      onClick={() => handleSortChange('price-high-low')}
+                    >
+                      High to Low
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
             
-            <div className="flex items-center justify-between">
-              <div className="flex items-center relative">
-                <span className="font-medium text-black">Sort:</span>
-                <button 
-                  onClick={toggleSortDropdown}
-                  className="bg-white dark:bg-white border border-gray-200 rounded px-3 py-2 flex items-center justify-between min-w-[100px] ml-2 text-black"
-                >
-                  <span>{sortOption === 'newest' ? 'Newest' : 
-                         sortOption === 'price-low-high' ? 'Low to High' :
-                         'High to Low'}</span>
-                  <svg 
-                    className="w-4 h-4 ml-1" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24" 
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                  </svg>
-                </button>
-                
-                {showSortDropdown && (
-                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-white border border-gray-200 rounded shadow-lg w-[160px] z-10">
-                    <ul>
-                      <li 
-                        className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'newest' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                        onClick={() => handleSortChange('newest')}
-                      >
-                        <span className={sortOption === 'newest' ? 'font-medium' : ''}>Newest</span>
-                      </li>
-                      <li 
-                        className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-low-high' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                        onClick={() => handleSortChange('price-low-high')}
-                      >
-                        Low to High
-                      </li>
-                      <li 
-                        className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-high-low' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                        onClick={() => handleSortChange('price-high-low')}
-                      >
-                        High to Low
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-              
-              <button 
-                onClick={toggleMobileFilters}
-                className="flex items-center px-4 py-2 border border-gray-200 rounded text-black"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+            <button 
+              onClick={toggleMobileFilters}
+              className="flex items-center px-4 py-2 border border-gray-200 rounded text-black"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+              </svg>
+              Filters
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Mobile Filters Overlay */}
+      {showMobileFilters && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={toggleMobileFilters}>
+          <div 
+            className="absolute right-0 top-0 h-full w-4/5 max-w-sm bg-white overflow-y-auto p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-medium text-black">Filters</h2>
+              <button onClick={toggleMobileFilters} className="text-black">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
-                Filters
+              </button>
+            </div>
+            
+            {/* Price Range */}
+            <div className="mb-8">
+              <h3 className="text-xl mb-4 font-medium text-black">Price Range</h3>
+              <div className="flex justify-between text-gray-600 text-sm mb-2">
+                <span>₹0</span>
+                <span>₹{priceRange.toLocaleString()}</span>
+              </div>
+              <input 
+                type="range" 
+                min="0" 
+                max="50000" 
+                step="1000"
+                value={priceRange}
+                onChange={handlePriceChange}
+                className="w-full h-2 bg-secondary/30 rounded-lg appearance-none cursor-pointer accent-secondary"
+              />
+            </div>
+            
+            {/* Rating Filter */}
+            <div className="mb-8">
+              <h3 className="text-xl mb-4 font-medium text-black">Rating</h3>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-rating-all"
+                    name="mobile-rating"
+                    checked={minRating === 0}
+                    onChange={() => handleRatingChange(0)}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-rating-all" className="text-black">All Ratings</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-rating-4+"
+                    name="mobile-rating"
+                    checked={minRating === 4}
+                    onChange={() => handleRatingChange(4)}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-rating-4+" className="text-black">4+ Stars</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-rating-3+"
+                    name="mobile-rating"
+                    checked={minRating === 3}
+                    onChange={() => handleRatingChange(3)}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-rating-3+" className="text-black">3+ Stars</label>
+                </div>
+              </div>
+            </div>
+            
+            {/* New Arrivals Filter */}
+            <div className="mb-8">
+              <h3 className="text-xl mb-4 font-medium text-black">Product Type</h3>
+              <div className="flex items-center">
+                <input 
+                  type="checkbox" 
+                  id="mobile-new-only"
+                  checked={showNewOnly}
+                  onChange={() => setShowNewOnly(!showNewOnly)}
+                  className="mr-3 h-5 w-5 accent-secondary"
+                />
+                <label htmlFor="mobile-new-only" className="text-black">New Arrivals Only</label>
+              </div>
+            </div>
+            
+            <div className="mt-8 pt-4 border-t border-gray-200">
+              <button 
+                onClick={() => {
+                  toggleMobileFilters();
+                }}
+                className="w-full bg-secondary text-white py-3 rounded text-center"
+              >
+                Apply Filters
+              </button>
+              <button 
+                onClick={() => {
+                  clearAllFilters();
+                  toggleMobileFilters();
+                }}
+                className="w-full text-secondary mt-3 py-2 text-center"
+              >
+                Clear All Filters
               </button>
             </div>
           </div>
         </div>
-        
-        {/* Mobile Filters Overlay */}
-        {showMobileFilters && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={toggleMobileFilters}>
-            <div 
-              className="absolute right-0 top-0 h-full w-4/5 max-w-sm bg-white overflow-y-auto p-6"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-medium text-black">Filters</h2>
-                <button onClick={toggleMobileFilters} className="text-black">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              </div>
-              
+      )}
+      
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Filters - Left Sidebar (Desktop only) */}
+        <div className="hidden lg:block w-1/4">
+          <div className="sticky top-24">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-medium text-black">Filters</h2>
+              <button 
+                onClick={clearAllFilters}
+                className="text-secondary hover:underline text-sm"
+              >
+                Clear All
+              </button>
+            </div>
+            
+            <div className="bg-white dark:bg-white p-6 rounded shadow-sm border border-gray-200 max-h-[calc(100vh-150px)] overflow-y-auto">
               {/* Price Range */}
               <div className="mb-8">
                 <h3 className="text-xl mb-4 font-medium text-black">Price Range</h3>
@@ -244,35 +355,35 @@ const ProductsPage = () => {
                   <div className="flex items-center">
                     <input 
                       type="radio" 
-                      id="mobile-rating-all"
-                      name="mobile-rating"
+                      id="rating-all"
+                      name="rating"
                       checked={minRating === 0}
                       onChange={() => handleRatingChange(0)}
                       className="mr-3 h-5 w-5 accent-secondary"
                     />
-                    <label htmlFor="mobile-rating-all" className="text-black">All Ratings</label>
+                    <label htmlFor="rating-all" className="text-black">All Ratings</label>
                   </div>
                   <div className="flex items-center">
                     <input 
                       type="radio" 
-                      id="mobile-rating-4+"
-                      name="mobile-rating"
+                      id="rating-4+"
+                      name="rating"
                       checked={minRating === 4}
                       onChange={() => handleRatingChange(4)}
                       className="mr-3 h-5 w-5 accent-secondary"
                     />
-                    <label htmlFor="mobile-rating-4+" className="text-black">4+ Stars</label>
+                    <label htmlFor="rating-4+" className="text-black">4+ Stars</label>
                   </div>
                   <div className="flex items-center">
                     <input 
                       type="radio" 
-                      id="mobile-rating-3+"
-                      name="mobile-rating"
+                      id="rating-3+"
+                      name="rating"
                       checked={minRating === 3}
                       onChange={() => handleRatingChange(3)}
                       className="mr-3 h-5 w-5 accent-secondary"
                     />
-                    <label htmlFor="mobile-rating-3+" className="text-black">3+ Stars</label>
+                    <label htmlFor="rating-3+" className="text-black">3+ Stars</label>
                   </div>
                 </div>
               </div>
@@ -283,208 +394,108 @@ const ProductsPage = () => {
                 <div className="flex items-center">
                   <input 
                     type="checkbox" 
-                    id="mobile-new-only"
+                    id="new-only"
                     checked={showNewOnly}
                     onChange={() => setShowNewOnly(!showNewOnly)}
                     className="mr-3 h-5 w-5 accent-secondary"
                   />
-                  <label htmlFor="mobile-new-only" className="text-black">New Arrivals Only</label>
+                  <label htmlFor="new-only" className="text-black">New Arrivals Only</label>
                 </div>
-              </div>
-              
-              <div className="mt-8 pt-4 border-t border-gray-200">
-                <button 
-                  onClick={() => {
-                    toggleMobileFilters();
-                  }}
-                  className="w-full bg-secondary text-white py-3 rounded text-center"
-                >
-                  Apply Filters
-                </button>
-                <button 
-                  onClick={() => {
-                    clearAllFilters();
-                    toggleMobileFilters();
-                  }}
-                  className="w-full text-secondary mt-3 py-2 text-center"
-                >
-                  Clear All Filters
-                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
         
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filters - Left Sidebar (Desktop only) */}
-          <div className="hidden lg:block w-1/4">
-            <div className="sticky top-24">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-medium text-black">Filters</h2>
+        {/* Product Grid - Right Side */}
+        <div className="w-full lg:w-3/4">
+          {/* Desktop Header (hidden on mobile) */}
+          <div className="hidden lg:flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-display text-black">All Products</h1>
+            
+            {/* Sorting Controls */}
+            <div className="flex items-center">
+              <span className="mr-2 font-medium text-black">Sort by:</span>
+              <div className="relative">
                 <button 
-                  onClick={clearAllFilters}
-                  className="text-secondary hover:underline text-sm"
+                  onClick={toggleSortDropdown}
+                  className="bg-white dark:bg-white border border-gray-200 rounded px-4 py-2 flex items-center justify-between min-w-[120px] text-black"
                 >
-                  Clear All
+                  <span>{sortOption === 'newest' ? 'Newest' : 
+                         sortOption === 'price-low-high' ? 'Price: Low to High' :
+                         'Price: High to Low'}</span>
+                  <svg 
+                    className="w-4 h-4 ml-2" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24" 
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
                 </button>
-              </div>
-              
-              <div className="bg-white dark:bg-white p-6 rounded shadow-sm border border-gray-200 max-h-[calc(100vh-150px)] overflow-y-auto">
-                {/* Price Range */}
-                <div className="mb-8">
-                  <h3 className="text-xl mb-4 font-medium text-black">Price Range</h3>
-                  <div className="flex justify-between text-gray-600 text-sm mb-2">
-                    <span>₹0</span>
-                    <span>₹{priceRange.toLocaleString()}</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="50000" 
-                    step="1000"
-                    value={priceRange}
-                    onChange={handlePriceChange}
-                    className="w-full h-2 bg-secondary/30 rounded-lg appearance-none cursor-pointer accent-secondary"
-                  />
-                </div>
                 
-                {/* Rating Filter */}
-                <div className="mb-8">
-                  <h3 className="text-xl mb-4 font-medium text-black">Rating</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <input 
-                        type="radio" 
-                        id="rating-all"
-                        name="rating"
-                        checked={minRating === 0}
-                        onChange={() => handleRatingChange(0)}
-                        className="mr-3 h-5 w-5 accent-secondary"
-                      />
-                      <label htmlFor="rating-all" className="text-black">All Ratings</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input 
-                        type="radio" 
-                        id="rating-4+"
-                        name="rating"
-                        checked={minRating === 4}
-                        onChange={() => handleRatingChange(4)}
-                        className="mr-3 h-5 w-5 accent-secondary"
-                      />
-                      <label htmlFor="rating-4+" className="text-black">4+ Stars</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input 
-                        type="radio" 
-                        id="rating-3+"
-                        name="rating"
-                        checked={minRating === 3}
-                        onChange={() => handleRatingChange(3)}
-                        className="mr-3 h-5 w-5 accent-secondary"
-                      />
-                      <label htmlFor="rating-3+" className="text-black">3+ Stars</label>
-                    </div>
+                {showSortDropdown && (
+                  <div className="absolute top-full right-0 mt-1 bg-white dark:bg-white border border-gray-200 rounded shadow-lg w-full z-10">
+                    <ul>
+                      <li 
+                        className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'newest' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                        onClick={() => handleSortChange('newest')}
+                      >
+                        <span className={sortOption === 'newest' ? 'font-medium' : ''}>Newest</span>
+                      </li>
+                      <li 
+                        className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-low-high' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                        onClick={() => handleSortChange('price-low-high')}
+                      >
+                        Price: Low to High
+                      </li>
+                      <li 
+                        className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-high-low' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                        onClick={() => handleSortChange('price-high-low')}
+                      >
+                        Price: High to Low
+                      </li>
+                    </ul>
                   </div>
-                </div>
-                
-                {/* New Arrivals Filter */}
-                <div className="mb-8">
-                  <h3 className="text-xl mb-4 font-medium text-black">Product Type</h3>
-                  <div className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      id="new-only"
-                      checked={showNewOnly}
-                      onChange={() => setShowNewOnly(!showNewOnly)}
-                      className="mr-3 h-5 w-5 accent-secondary"
-                    />
-                    <label htmlFor="new-only" className="text-black">New Arrivals Only</label>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
           
-          {/* Product Grid - Right Side */}
-          <div className="w-full lg:w-3/4">
-            {/* Desktop Header (hidden on mobile) */}
-            <div className="hidden lg:flex justify-between items-center mb-8">
-              <h1 className="text-3xl font-display text-black">All Products</h1>
-              
-              {/* Sorting Controls */}
-              <div className="flex items-center">
-                <span className="mr-2 font-medium text-black">Sort by:</span>
-                <div className="relative">
-                  <button 
-                    onClick={toggleSortDropdown}
-                    className="bg-white dark:bg-white border border-gray-200 rounded px-4 py-2 flex items-center justify-between min-w-[120px] text-black"
-                  >
-                    <span>{sortOption === 'newest' ? 'Newest' : 
-                           sortOption === 'price-low-high' ? 'Price: Low to High' :
-                           'Price: High to Low'}</span>
-                    <svg 
-                      className="w-4 h-4 ml-2" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24" 
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  </button>
-                  
-                  {showSortDropdown && (
-                    <div className="absolute top-full right-0 mt-1 bg-white dark:bg-white border border-gray-200 rounded shadow-lg w-full z-10">
-                      <ul>
-                        <li 
-                          className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'newest' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                          onClick={() => handleSortChange('newest')}
-                        >
-                          <span className={sortOption === 'newest' ? 'font-medium' : ''}>Newest</span>
-                        </li>
-                        <li 
-                          className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-low-high' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                          onClick={() => handleSortChange('price-low-high')}
-                        >
-                          Price: Low to High
-                        </li>
-                        <li 
-                          className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'price-high-low' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                          onClick={() => handleSortChange('price-high-low')}
-                        >
-                          Price: High to Low
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
+          {/* Products Display */}
+          {filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
-            
-            {/* Products Display */}
-            {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-white dark:bg-white rounded-lg shadow-sm border border-gray-200">
-                <p className="text-lg text-black">
-                  No products found matching your criteria.
-                </p>
-                <button 
-                  onClick={clearAllFilters}
-                  className="mt-4 text-secondary hover:underline"
-                >
-                  Clear filters
-                </button>
-              </div>
-            )}
-          </div>
+          ) : (
+            <div className="text-center py-12 bg-white dark:bg-white rounded-lg shadow-sm border border-gray-200">
+              <p className="text-lg text-black">
+                No products found matching your criteria.
+              </p>
+              <button 
+                onClick={clearAllFilters}
+                className="mt-4 text-secondary hover:underline"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+};
+
+// Main wrapper component with Suspense
+const ProductsPage = () => {
+  return (
+    <main className="min-h-screen bg-white dark:bg-white">
+      <Header />
+      <Suspense fallback={<div className="container mx-auto py-20 px-4 text-center">Loading products...</div>}>
+        <ProductsContent />
+      </Suspense>
       <Footer />
     </main>
   );

@@ -334,7 +334,7 @@ const CheckoutPage = () => {
                       
                       {addressList.length === 0 && (
                         <div className="text-center py-6">
-                          <p className="text-gray-500 mb-4">You don't have any saved addresses</p>
+                          <p className="text-gray-500 mb-4">You don&apos;t have any saved addresses</p>
                           <button 
                             className="px-4 py-2 bg-[#c5a87f] text-white font-medium rounded"
                             onClick={() => setShowAddAddressForm(true)}
@@ -383,7 +383,7 @@ const CheckoutPage = () => {
                           <div className="ml-4 flex-1">
                             <p className="text-sm text-gray-900 font-medium">{item.name}</p>
                             <div className="text-xs text-gray-500 mt-1">
-                              {item.size && <span>Size: {item.size.toUpperCase()} {item.color && <>&#124;</> } </span>}
+                              {item.size && <span>Size: {item.size.toUpperCase()} {item.color && <span>&#124;</span>} </span>}
                               {item.color && <span>Color: {item.color}</span>}
                             </div>
                             <div className="flex justify-between mt-2">

@@ -376,12 +376,14 @@ const ProductDetail = () => {
                   className={`aspect-square border ${mainImage === thumb ? 'border-[#c5a87f]' : 'border-gray-200'} overflow-hidden rounded hover:border-[#c5a87f] transition-colors`}
                   onClick={() => handleThumbnailClick(thumb)}
                 >
-                  <Image 
-                    src={thumb} 
-                    alt={`${product.name} thumbnail ${index + 1}`} 
-                    fill
-                    className="object-cover"
-                  />
+                  <div className="relative w-full h-full">
+                    <Image 
+                      src={thumb} 
+                      alt={`${product.name} thumbnail ${index + 1}`} 
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
                 </button>
               ))}
             </div>
@@ -590,7 +592,7 @@ const ProductDetail = () => {
             {activeTab === 'about' && (
               <div>
                 <h3 className="text-xl font-display mb-4">About the Product</h3>
-                <p className="mb-4">The Embroidered Silk Dress is our signature design that brings together centuries-old artisanal techniques with modern aesthetics. This exquisite piece stands as a testament to India's rich textile heritage and the expertise of our master craftspeople.</p>
+                <p className="mb-4">The Embroidered Silk Dress is our signature design that brings together centuries-old artisanal techniques with modern aesthetics. This exquisite piece stands as a testament to India&apos;s rich textile heritage and the expertise of our master craftspeople.</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                   <div>
@@ -620,8 +622,8 @@ const ProductDetail = () => {
               <div>
                 <h3 className="text-xl font-display mb-4">Shipping & Returns</h3>
                 <p className="mb-4">We offer free standard shipping on all orders above ₹5000. For orders below this amount, a flat shipping fee of ₹250 will be applied. Delivery typically takes 3-5 business days depending on your location.</p>
-                <p className="mb-4">If you're not completely satisfied with your purchase, you can return it within 30 days of delivery for a full refund or exchange. Please note that items must be unworn, unwashed, and in their original packaging with all tags attached.</p>
-                <p>For international orders, please allow 7-14 business days for delivery. Customs duties and taxes may apply based on your country's regulations and are the responsibility of the customer.</p>
+                <p className="mb-4">If you&apos;re not completely satisfied with your purchase, you can return it within 30 days of delivery for a full refund or exchange. Please note that items must be unworn, unwashed, and in their original packaging with all tags attached.</p>
+                <p>For international orders, please allow 7-14 business days for delivery. Customs duties and taxes may apply based on your country&apos;s regulations and are the responsibility of the customer.</p>
               </div>
             )}
             
