@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 const Footer = () => {
   return (
@@ -8,6 +9,18 @@ const Footer = () => {
         <div>
           {/* Brand */}
           <div className="max-w-md mx-auto mb-8">
+            <div className="flex justify-center mb-4">
+              <div className="relative w-24 h-24 overflow-hidden rounded-full border-2 border-[#d4b78f]/50 shadow-sm">
+                <Image 
+                  src="/logo.jpg" 
+                  alt="Alvira Logo" 
+                  fill 
+                  sizes="96px"
+                  className="object-cover scale-105"
+                  priority
+                />
+              </div>
+            </div>
             <h2 className="font-display text-2xl text-white mb-4 text-center">ALVIRA</h2>
             <p className="text-sm md:text-base leading-relaxed mb-8 text-center text-gray-300/90 font-light max-w-xl mx-auto">
               Alvira celebrates the rich heritage of Indian craftsmanship with 

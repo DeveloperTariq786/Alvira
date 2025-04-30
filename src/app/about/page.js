@@ -21,61 +21,40 @@ export default function AboutPage() {
             </h2>
             <div className="w-32 h-1 bg-[#a27b5c] mx-auto mb-6"></div>
             <p className="text-[#2c3639] max-w-2xl mx-auto text-base md:text-lg mb-10">
-              Discover the story, mission, and values behind our premium fashion brand
+              A house of Kashmiri Hand Embroidery
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-stretch">
-            {/* Left Side - Images */}
-            <div className="flex flex-col gap-6">
-              {/* Main Store Image */}
-              <div className="relative overflow-hidden rounded-lg shadow-md">
-                <div className="aspect-w-16 aspect-h-9 h-80">
+          <div className="bg-[#dcd7c9]/20 p-6 rounded-lg border border-[#dcd7c9] shadow-md mb-16">
+            <div className="flex flex-col lg:flex-row items-center">
+              <div className="order-2 lg:order-1 lg:w-2/3 pt-6 lg:pt-0 lg:pr-8">
+                <h3 className="text-xl md:text-2xl font-bold mb-4 text-[#2c3639] font-display">Our Heritage</h3>
+                <p className="text-sm md:text-base text-[#2c3639]/90 leading-relaxed mb-6">
+                  Introducing Kashmir's famous Aari work which is also known as Kashida embroidery, it is a type of intricate 
+                  embroidery that is traditionally done by hand using a hooked needle called Aari. It originates from Kashmir and is 
+                  considered as one of the famous forms of embroidery in World. We are pleased to introduce this ancient art to 
+                  enhance and elevate any piece of fabric and to revive this forgotten art. At Alvira we have a wide range of hand 
+                  embroidery products with unique designs and beautiful colours combinations, patiently crafted by our 
+                  skilled artisans. We invite you to explore our beautiful crafted pieces and discover for yourself the joy and fulfillment it provides.
+                </p>
+
+                <h3 className="text-xl md:text-2xl font-bold mb-4 text-[#2c3639] font-display">Our Philosophy</h3>
+                <p className="text-sm md:text-base text-[#2c3639]/90 leading-relaxed">
+                  At Alvira, we believe that luxury should be both accessible and responsible. 
+                  Our mission is to create sophisticated, enduring pieces that empower our clients to express 
+                  their unique style while upholding the highest standards of craftsmanship and 
+                  environmental stewardship.
+                </p>
+              </div>
+              
+              <div className="order-1 lg:order-2 lg:w-1/3 flex justify-center mb-4 lg:mb-0">
+                <div className="relative w-56 h-72 md:w-64 md:h-80 overflow-hidden rounded-[50%] border border-gray-200 shadow-md">
                   <Image 
-                    src="https://images.unsplash.com/photo-1581044777550-4cfa60707c03?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
-                    alt="Alvira Boutique Store" 
+                    src="https://firebasestorage.googleapis.com/v0/b/draftai-b5cb9.appspot.com/o/Demo%2FWhatsApp%20Image%202025-04-25%20at%208.43.59%20PM.jpeg?alt=media&token=8474baff-2547-443f-958a-e9a7b6dd208d" 
+                    alt="Kashmiri Hand Embroidery" 
                     fill
-                    className="object-cover rounded-lg transition-transform duration-500 hover:scale-105"
+                    className="object-cover object-center"
                   />
-                </div>
-              </div>
-
-              {/* Secondary Image - Hands with Clothing */}
-              <div className="relative h-56 md:h-64 overflow-hidden rounded-lg shadow-md">
-                <Image 
-                  src="https://images.unsplash.com/photo-1623244307563-f9ade3df13c8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
-                  alt="Alvira Craftsmanship" 
-                  fill
-                  className="object-cover object-center transition-transform duration-500 hover:scale-105"
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#2c3639]/90 to-transparent p-4">
-                  <p className="text-white text-xs md:text-sm font-medium">Handcrafted excellence by skilled artisans</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Side - Content */}
-            <div className="flex flex-col justify-center">
-              {/* Text Content */}
-              <div className="bg-[#dcd7c9]/20 p-7 rounded-lg border border-[#dcd7c9] shadow-md">
-                <div className="mb-6 md:mb-8">
-                  <h3 className="text-xl md:text-2xl font-bold mb-4 text-[#2c3639] font-display">Our Heritage</h3>
-                  <p className="text-sm md:text-base text-[#2c3639]/90 leading-relaxed">
-                    Founded in 2015, Alvira began as a boutique atelier in Mumbai with a vision to 
-                    blend timeless elegance with contemporary fashion. What started as a passion project
-                    has evolved into a distinguished brand renowned for its meticulous attention to detail 
-                    and unwavering commitment to sustainable and ethical practices.
-                  </p>
-                </div>
-
-                <div className="mb-0 md:mb-0">
-                  <h3 className="text-xl md:text-2xl font-bold mb-4 text-[#2c3639] font-display">Our Philosophy</h3>
-                  <p className="text-sm md:text-base text-[#2c3639]/90 leading-relaxed">
-                    At Alvira, we believe that luxury should be both accessible and responsible. 
-                    Our mission is to create sophisticated, enduring pieces that empower our clients to express 
-                    their unique style while upholding the highest standards of craftsmanship and 
-                    environmental stewardship.
-                  </p>
                 </div>
               </div>
             </div>
@@ -189,9 +168,7 @@ export default function AboutPage() {
               </div>
               
               <div className="mt-8 pt-6 border-t border-[#dcd7c9]">
-                <Link href="/contact" className="inline-flex items-center text-[#a27b5c] font-semibold hover:text-[#a27b5c]/80 transition-colors text-base">
-                  Schedule a consultation <FaArrowRight className="ml-2 text-xs" />
-                </Link>
+                {/* Schedule a consultation link removed as requested */}
               </div>
             </div>
 

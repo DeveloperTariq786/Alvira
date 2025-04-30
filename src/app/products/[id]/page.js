@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -27,6 +27,10 @@ const ProductDetail = () => {
   const [phoneError, setPhoneError] = useState('');
   const [sizeError, setSizeError] = useState(false);
   const [colorError, setColorError] = useState(false);
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
+  
+  // Buy Now state
+  const [buyNowError, setBuyNowError] = useState(''); // For general buy now errors like size/color missing
   
   // Mock thumbnail images (in a real app these would come from the product data)
   const [thumbnails, setThumbnails] = useState([]);
@@ -83,41 +87,77 @@ const ProductDetail = () => {
     }
   ];
 
-  useEffect(() => {
-    // Combine products from different data sources
-    const allProducts = [...newArrivalsProducts, ...bestsellers.items];
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const imageContainerRef = useRef(null);
+  
+  // For touch swipe functionality
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState(null);
+  
+  // Touch handlers with direct DOM events for better mobile support
+  const handleTouchStart = (e) => {
+    setTouchStartX(e.touches[0].clientX);
+    setSwiping(true);
+    setSwipeDirection(null);
+  };
+  
+  const handleTouchMove = (e) => {
+    if (!swiping) return;
     
-    // Find the product by ID
-    const productId = parseInt(params.id, 10);
-    const foundProduct = allProducts.find(p => p.id === productId);
+    const touchMoveX = e.touches[0].clientX;
+    const diffX = touchStartX - touchMoveX;
     
-    if (foundProduct) {
-      setProduct(foundProduct);
-      setMainImage(foundProduct.image);
+    // Determine swipe direction for visual feedback
+    if (Math.abs(diffX) > 20) {
+      setSwipeDirection(diffX > 0 ? 'left' : 'right');
       
-      // Create mock thumbnails using the same image
-      // In a real app, you would use actual product gallery images
-      setThumbnails([
-        foundProduct.image,
-        foundProduct.image,
-        foundProduct.image,
-        foundProduct.image
-      ]);
-
-      // Find similar products
-      const similar = allProducts
-        .filter(p => p.id !== foundProduct.id) // Exclude current product
-        .filter(p => 
-          p.category === foundProduct.category || // Same category
-          (p.tags && foundProduct.tags && p.tags.some(tag => foundProduct.tags.includes(tag))) // Shared tags
-        )
-        .slice(0, 4); // Limit to 4 similar products
-      
-      setSimilarProducts(similar);
+      // Prevent default to stop page scrolling during horizontal swipe
+      if (Math.abs(diffX) > 10 && thumbnails.length > 1) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  };
+  
+  const handleTouchEnd = (e) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffX = touchStartX - touchEndX;
+    
+    // Minimum distance to be considered a swipe
+    const minDistance = 50;
+    
+    if (Math.abs(diffX) > minDistance) {
+      if (diffX > 0) {
+        // Swiped left, go to next image
+        nextImage();
+      } else {
+        // Swiped right, go to previous image
+        prevImage();
+      }
     }
     
-    setLoading(false);
-  }, [params.id]);
+    // Reset swipe state
+    setSwiping(false);
+    setSwipeDirection(null);
+  };
+
+  // Navigation functions
+  const nextImage = () => {
+    if (thumbnails.length <= 1) return;
+    
+    const newIndex = (currentImageIndex + 1) % thumbnails.length;
+    setCurrentImageIndex(newIndex);
+    setMainImage(thumbnails[newIndex]);
+  };
+  
+  const prevImage = () => {
+    if (thumbnails.length <= 1) return;
+    
+    const newIndex = (currentImageIndex - 1 + thumbnails.length) % thumbnails.length;
+    setCurrentImageIndex(newIndex);
+    setMainImage(thumbnails[newIndex]);
+  };
 
   const handleIncreaseQuantity = () => {
     setQuantity(prevQuantity => prevQuantity + 1);
@@ -127,8 +167,9 @@ const ProductDetail = () => {
     setQuantity(prevQuantity => prevQuantity > 1 ? prevQuantity - 1 : 1);
   };
 
-  const handleThumbnailClick = (image) => {
+  const handleThumbnailClick = (image, index) => {
     setMainImage(image);
+    setCurrentImageIndex(index);
   };
 
   const handleTabChange = (tab) => {
@@ -217,6 +258,61 @@ const ProductDetail = () => {
     }
   };
   
+  const handleBuyNow = () => {
+    // Reset previous errors
+    setSizeError(false);
+    setColorError(false);
+    setBuyNowError('');
+
+    // Validate size and color selection
+    let hasError = false;
+    let errorMessages = [];
+
+    if (!selectedSize) {
+      setSizeError(true);
+      errorMessages.push('Please select a size');
+      hasError = true;
+    }
+    
+    if (!selectedColor) {
+      setColorError(true);
+      errorMessages.push('Please select a color');
+      hasError = true;
+    }
+    
+    // If any validation errors, show message and don't proceed
+    if (hasError) {
+      setBuyNowError(errorMessages.join(' and ')); // Combine error messages
+      return;
+    }
+
+    // If validations pass, add to cart and redirect
+    if (product) {
+      const productToAdd = {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: mainImage,
+        quantity: quantity, // Use the current quantity
+        size: selectedSize,
+        color: selectedColor,
+        // No phone number needed for buy now immediate redirect
+      };
+      
+      // Store item details in sessionStorage for checkout page to pick up
+      try {
+        sessionStorage.setItem('buyNowItem', JSON.stringify(productToAdd));
+      } catch (error) {
+        console.error('Error saving to sessionStorage:', error);
+        setBuyNowError('Could not initiate Buy Now. Please try again.');
+        return; // Prevent redirection if storage fails
+      }
+
+      // Redirect to checkout
+      router.push('/checkout');
+    }
+  };
+
   const handlePhoneSubmit = () => {
     // Basic phone validation
     if (!phoneNumber.trim()) {
@@ -260,11 +356,9 @@ const ProductDetail = () => {
     window.dispatchEvent(new Event('storage'));
   };
 
-  const handleSizeChange = (e) => {
-    setSelectedSize(e.target.value);
-    if (e.target.value) {
-      setSizeError(false);
-    }
+  const handleSizeChange = (size) => {
+    setSelectedSize(size);
+    setSizeError(false);
   };
 
   const handleColorChange = (e) => {
@@ -273,6 +367,89 @@ const ProductDetail = () => {
       setColorError(false);
     }
   };
+
+  const toggleSizeGuide = () => {
+    setShowSizeGuide(!showSizeGuide);
+  };
+
+  useEffect(() => {
+    // Combine products from different data sources
+    const allProducts = [...newArrivalsProducts, ...bestsellers.items];
+    
+    // Find the product by ID
+    const productId = parseInt(params.id, 10);
+    const foundProduct = allProducts.find(p => p.id === productId);
+    
+    if (foundProduct) {
+      setProduct(foundProduct);
+      setMainImage(foundProduct.image);
+      
+      // Use product images array if available, otherwise fallback to single image
+      if (foundProduct.images && foundProduct.images.length > 0) {
+        setThumbnails(foundProduct.images);
+      } else {
+        // Fallback to single image repeated
+        setThumbnails([
+          foundProduct.image,
+          foundProduct.image,
+          foundProduct.image,
+          foundProduct.image
+        ]);
+      }
+
+      // Find similar products
+      const similar = allProducts
+        .filter(p => p.id !== foundProduct.id) // Exclude current product
+        .filter(p => 
+          p.category === foundProduct.category || // Same category
+          (p.tags && foundProduct.tags && p.tags.some(tag => foundProduct.tags.includes(tag))) // Shared tags
+        )
+        .slice(0, 4); // Limit to 4 similar products
+      
+      setSimilarProducts(similar);
+    }
+    
+    setLoading(false);
+  }, [params.id]);
+
+  // Add this useEffect to handle touch events without passive listeners
+  useEffect(() => {
+    const element = imageContainerRef.current;
+    if (!element) return;
+    
+    // We need to add non-passive event listeners to be able to prevent default on touchmove
+    const touchStartHandler = (e) => handleTouchStart(e);
+    const touchMoveHandler = (e) => {
+      if (swiping && thumbnails.length > 1) {
+        const touchMoveX = e.touches[0].clientX;
+        const diffX = touchStartX - touchMoveX;
+        
+        // Determine swipe direction for visual feedback
+        if (Math.abs(diffX) > 20) {
+          setSwipeDirection(diffX > 0 ? 'left' : 'right');
+          
+          // Prevent default to stop page scrolling during horizontal swipe
+          if (Math.abs(diffX) > 10) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      }
+    };
+    const touchEndHandler = (e) => handleTouchEnd(e);
+    
+    // Add event listeners with passive: false to allow preventDefault
+    element.addEventListener('touchstart', touchStartHandler, { passive: true });
+    element.addEventListener('touchmove', touchMoveHandler, { passive: false });
+    element.addEventListener('touchend', touchEndHandler, { passive: true });
+    
+    return () => {
+      // Cleanup
+      element.removeEventListener('touchstart', touchStartHandler);
+      element.removeEventListener('touchmove', touchMoveHandler);
+      element.removeEventListener('touchend', touchEndHandler);
+    };
+  }, [imageContainerRef, swiping, touchStartX, thumbnails.length, handleTouchStart, handleTouchEnd]);
 
   if (loading) {
     return (
@@ -354,7 +531,15 @@ const ProductDetail = () => {
           {/* Product Images */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div className="relative h-[500px] md:h-[650px] bg-gray-50 overflow-hidden rounded">
+            <div 
+              className={`relative h-[500px] md:h-[650px] bg-gray-50 overflow-hidden rounded ${
+                swiping ? 'cursor-grabbing' : 'cursor-grab'
+              } ${
+                swipeDirection === 'left' ? 'translate-x-[-5px] transition-transform' : 
+                swipeDirection === 'right' ? 'translate-x-[5px] transition-transform' : ''
+              }`}
+              ref={imageContainerRef}
+            >
               <Image 
                 src={mainImage} 
                 alt={product.name} 
@@ -363,9 +548,55 @@ const ProductDetail = () => {
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority
               />
+              
+              {/* Discount Badge - Top Left */}
+              {product.discount && (
+                <div className="absolute top-4 left-4 z-10">
+                  <div className="bg-red-600 text-white px-4 py-1 text-sm font-medium rounded shadow-md">
+                    {product.discount}% OFF
+                  </div>
+                </div>
+              )}
+              
+              {/* NEW Badge - Top Right */}
               {product.isNew && (
-                <div className="absolute top-4 right-4 bg-[#c5a87f] text-white px-4 py-1 text-sm font-medium rounded">
-                  NEW
+                <div className="absolute top-4 right-4 z-10">
+                  <div className="bg-[#c5a87f] text-white px-4 py-1 text-sm font-medium rounded">
+                    NEW
+                  </div>
+                </div>
+              )}
+              
+              {/* Navigation Arrows - Only shown on desktop and if more than one image */}
+              {thumbnails.length > 1 && (
+                <>
+                  <button 
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 shadow-md hidden md:block transition-all"
+                    aria-label="Previous image"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 shadow-md hidden md:block transition-all"
+                    aria-label="Next image"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
+              
+              {/* Mobile swipe indicator - Only shown on mobile */}
+              {thumbnails.length > 1 && (
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center md:hidden">
+                  <div className="bg-black bg-opacity-50 rounded-full px-3 py-1 text-white text-xs">
+                    Swipe to view more images
+                  </div>
                 </div>
               )}
             </div>
@@ -375,8 +606,8 @@ const ProductDetail = () => {
               {thumbnails.map((thumb, index) => (
                 <button 
                   key={index} 
-                  className={`aspect-square border ${mainImage === thumb ? 'border-[#c5a87f]' : 'border-gray-200'} overflow-hidden rounded hover:border-[#c5a87f] transition-colors relative`}
-                  onClick={() => handleThumbnailClick(thumb)}
+                  className={`aspect-square border ${currentImageIndex === index ? 'border-[#c5a87f]' : 'border-gray-200'} overflow-hidden rounded hover:border-[#c5a87f] transition-colors relative`}
+                  onClick={() => handleThumbnailClick(thumb, index)}
                 >
                   <Image 
                     src={thumb} 
@@ -401,9 +632,40 @@ const ProductDetail = () => {
               </div>
             )}
             
-            <p className="text-2xl font-medium text-[#c5a87f] mb-6">
-              {product.currency} {product.price.toLocaleString()}
-            </p>
+            {/* Price Display with Discount */}
+            <div className="flex items-center mb-6">
+              <p className="text-2xl font-medium text-[#c5a87f]">
+                {product.currency} {product.price.toLocaleString()}
+              </p>
+              
+              {product.originalPrice && (
+                <>
+                  <p className="ml-3 text-lg line-through text-gray-500">
+                    {product.currency} {product.originalPrice.toLocaleString()}
+                  </p>
+                  <span className="ml-3 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded">
+                    {product.discount}% OFF
+                  </span>
+                </>
+              )}
+            </div>
+            
+            {/* Limited Time Offer - only shown for discounted products */}
+            {product.discount && (
+              <div className="mb-6 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm font-medium text-gray-800">
+                    Limited time offer! Sale ends in {product.saleEndsIn > 1 ? `${product.saleEndsIn} days` : '1 day'}
+                  </p>
+                </div>
+                <p className="text-xs text-gray-600 mt-1 ml-7">
+                  Save {product.currency} {(product.originalPrice - product.price).toLocaleString()} on this purchase
+                </p>
+              </div>
+            )}
             
             <p className="text-gray-700 dark:text-gray-700 mb-6">
               {product.description || 'Elegant silk dress with traditional embroidery, perfect for formal occasions.'}
@@ -428,30 +690,160 @@ const ProductDetail = () => {
               </div>
             )}
             
-            {/* Size Selection */}
+            {/* Size Selection - Changed from dropdown to inline buttons */}
             <div className="mb-6">
-              <label className="block text-black dark:text-black font-medium mb-2">
-                Size {sizeError && <span className="text-red-500 text-sm ml-2">*Please select a size</span>}
-              </label>
-              <div className="relative">
-                <select 
-                  className={`w-full appearance-none border ${sizeError ? 'border-red-500' : 'border-gray-300'} rounded px-4 py-3 pr-8 text-black dark:text-black bg-white dark:bg-white focus:outline-none ${!sizeError ? 'focus:border-[#c5a87f] hover:border-[#c5a87f]' : 'focus:border-red-500'} transition-colors`}
-                  style={{ background: 'white' }}
-                  value={selectedSize}
-                  onChange={handleSizeChange}
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-black dark:text-black font-medium">
+                  Size {sizeError && <span className="text-red-500 text-sm ml-2">*Please select a size</span>}
+                </label>
+                <button 
+                  type="button" 
+                  onClick={toggleSizeGuide} 
+                  className="text-sm text-[#c5a87f] underline hover:text-[#b39770]"
                 >
-                  <option value="" className="text-black">Select size</option>
-                  <option value="s" className="text-black">Small</option>
-                  <option value="m" className="text-black">Medium</option>
-                  <option value="l" className="text-black">Large</option>
-                  <option value="xl" className="text-black">X-Large</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                  </svg>
-                </div>
+                  Size Guide
+                </button>
               </div>
+              <div className="flex flex-wrap gap-2">
+                {['s', 'm', 'l', 'xl', 'xxl', 'unstitch'].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => handleSizeChange(size)}
+                    className={`min-w-[48px] h-10 px-3 py-1 uppercase font-medium text-sm border transition-all ${
+                      selectedSize === size 
+                        ? 'border-[#c5a87f] bg-[#c5a87f] text-white' 
+                        : 'border-gray-300 text-gray-700 hover:border-[#c5a87f]'
+                    } rounded`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Inline Size Guide */}
+              {showSizeGuide && (
+                <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+                  <div className="bg-white px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h4 className="font-medium text-black dark:text-white">Garment Size Guide (Inches)</h4>
+                    <button 
+                      onClick={toggleSizeGuide}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="p-4 bg-white">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-[#1e2832] text-white">
+                            <th className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center">SIZE</th>
+                            <th className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center">S</th>
+                            <th className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center">M</th>
+                            <th className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center">L</th>
+                            <th className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center">XL</th>
+                            <th className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center">XXL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Length</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">36</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">36</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">36</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">36</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">36</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Chest</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">38</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">40</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">42</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">44</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">46</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Waist</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">34</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">36</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">38</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">40</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">42</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Hip</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">40</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">42</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">44</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">46</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">48</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Shoulder</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">15</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">15.5</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">16</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">16.5</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">17</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Armhole</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">9</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">9.5</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">10</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">10.5</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">11</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Bicep</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">6.5</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">6.8</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">7</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">7.3</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">7.5</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Neck</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">7</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">7.3</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">7.5</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">7.8</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">8.1</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Wrist</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">4</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">4.3</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">4.5</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">4.8</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">5</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 font-medium bg-white text-black">Trouser Length</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">38</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">38</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">39</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">39</td>
+                            <td className="border border-gray-300 dark:border-gray-700 px-3 py-2 text-center bg-white text-black">40</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div className="mt-4 space-y-2">
+                      <div className="p-3 bg-white border border-gray-200 dark:border-gray-700 rounded-md">
+                        <p className="font-medium mb-1 text-black">UNSTITCH Option:</p>
+                        <p className="text-black">We provide you with the fabric and design pattern. You can then get it tailored according to your exact measurements.</p>
+                      </div>
+                      <p className="text-xs text-black mt-2 italic">Please note that there may be a slight variation (±0.5") in the measurements provided due to the handcrafted nature of our garments.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Color Selection */}
@@ -459,24 +851,38 @@ const ProductDetail = () => {
               <label className="block text-black dark:text-black font-medium mb-2">
                 Color {colorError && <span className="text-red-500 text-sm ml-2">*Please select a color</span>}
               </label>
-              <div className="relative">
-                <select 
-                  className={`w-full appearance-none border ${colorError ? 'border-red-500' : 'border-gray-300'} rounded px-4 py-3 pr-8 text-black dark:text-black bg-white dark:bg-white focus:outline-none ${!colorError ? 'focus:border-[#c5a87f] hover:border-[#c5a87f]' : 'focus:border-red-500'} transition-colors`}
-                  style={{ background: 'white' }}
-                  value={selectedColor}
-                  onChange={handleColorChange}
-                >
-                  <option value="" className="text-black">Select color</option>
-                  <option value="red" className="text-black">Red</option>
-                  <option value="blue" className="text-black">Blue</option>
-                  <option value="green" className="text-black">Green</option>
-                  <option value="black" className="text-black">Black</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                  </svg>
-                </div>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { value: 'red', hex: '#E53E3E' },
+                  { value: 'blue', hex: '#3182CE' },
+                  { value: 'green', hex: '#38A169' },
+                  { value: 'black', hex: '#1A202C' }
+                ].map(color => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => {
+                      setSelectedColor(color.value);
+                      setColorError(false);
+                    }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                      selectedColor === color.value 
+                        ? 'ring-2 ring-offset-2 ring-[#c5a87f] scale-110' 
+                        : 'hover:scale-110'
+                    }`}
+                    style={{ 
+                      backgroundColor: color.hex,
+                      border: color.value === 'black' ? '1px solid #E2E8F0' : 'none'
+                    }}
+                    aria-label={`Select ${color.value} color`}
+                  >
+                    {selectedColor === color.value && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={color.value === 'black' ? 'white' : 'white'}>
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
             
@@ -518,6 +924,19 @@ const ProductDetail = () => {
                 >
                   Add to Cart
                 </button>
+              )}
+              
+              {/* Buy Now Button */}
+              <button 
+                className="w-full py-3 bg-[#c5a87f] text-black font-medium hover:bg-[#b39770] transition-colors rounded"
+                onClick={handleBuyNow}
+              >
+                Buy Now
+              </button>
+
+              {/* Display Buy Now error message */}
+              {buyNowError && (
+                <p className="text-red-500 text-sm text-center mt-2">{buyNowError}</p>
               )}
             </div>
             

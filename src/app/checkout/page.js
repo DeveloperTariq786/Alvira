@@ -50,25 +50,54 @@ const CheckoutPage = () => {
   const router = useRouter();
 
   useEffect(() => {
-    const calculateTotals = (items) => {
-      const itemsSubtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    let items = [];
+    let buyNowItemData = null;
+
+    // Check sessionStorage first for a 'Buy Now' item
+    try {
+      const storedBuyNowItem = sessionStorage.getItem('buyNowItem');
+      if (storedBuyNowItem) {
+        buyNowItemData = JSON.parse(storedBuyNowItem);
+        // IMPORTANT: Clear the item from storage immediately after reading
+        sessionStorage.removeItem('buyNowItem');
+      }
+    } catch (error) {
+      console.error('Error reading or removing from sessionStorage:', error);
+      // Optionally handle error, maybe show a message to the user
+    }
+
+    // If a 'Buy Now' item was found, use it exclusively
+    if (buyNowItemData) {
+      items = [buyNowItemData]; // Use only the Buy Now item
+    } else {
+      // Otherwise, load from the regular cart
+      items = getCartItems();
+    }
+
+    const calculateTotals = (currentItems) => {
+      const itemsSubtotal = currentItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
       const calculatedTaxes = itemsSubtotal * 0.18; // 18% tax rate
       
       setSubtotal(itemsSubtotal);
       setTaxes(calculatedTaxes);
+      // Apply discount *after* calculating base total
       setTotal(itemsSubtotal + calculatedTaxes - discount);
     };
 
-    const items = getCartItems();
     setCartItems(items);
-    calculateTotals(items);
+    calculateTotals(items); // Calculate based on the determined items (buy now or cart)
     
     // Set default address
     const defaultAddress = addressList.find(addr => addr.isDefault);
     if (defaultAddress) {
       setSelectedAddress(defaultAddress.id);
     }
-  }, [addressList, discount]);
+    // Recalculate total whenever discount changes
+    // Make sure calculateTotals uses the current cartItems state if discount changes later
+    const currentItemsForDiscount = buyNowItemData ? [buyNowItemData] : getCartItems(); 
+    calculateTotals(currentItemsForDiscount); 
+
+  }, [addressList, discount]); // Rerun if addressList or discount changes
 
   const handleAddressSelection = (addressId) => {
     setSelectedAddress(addressId);

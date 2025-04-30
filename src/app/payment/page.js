@@ -142,35 +142,81 @@ const PaymentPage = () => {
           font-weight: 600;
           font-size: 1rem;
         }
+        
+        /* Mobile responsive styles */
+        @media (max-width: 640px) {
+          .payment-tabs-container {
+            flex-direction: column;
+          }
+          
+          .payment-methods-sidebar {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          
+          .payment-content-area {
+            padding: 1rem;
+          }
+          
+          .payment-option {
+            border-left: none;
+            border-left-width: 0;
+            border-left-style: none;
+            padding: 0.75rem 1rem;
+          }
+          
+          .payment-option.selected {
+            border-left: none;
+            border-left-width: 0;
+            background-color: #f9f9f9;
+            border-radius: 0.375rem;
+          }
+          
+          .card-inputs-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .upi-qr-container {
+            width: 100%;
+          }
+          
+          .upi-qr-code {
+            width: 100%;
+            max-width: 180px;
+            height: auto;
+            aspect-ratio: 1/1;
+          }
+        }
       `}</style>
       
-      <div className="container mx-auto px-4 py-8 mt-16">
+      <div className="container mx-auto px-4 py-6 mt-16 sm:py-8">
         {cartItems.length === 0 ? (
-          <div className="text-center py-16 max-w-md mx-auto">
-            <h2 className="text-3xl font-display mb-4 text-black">Your Cart is Empty</h2>
-            <p className="text-gray-600 mb-8">You need to add items to your cart before payment.</p>
+          <div className="text-center py-12 max-w-md mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-display mb-4 text-black">Your Cart is Empty</h2>
+            <p className="text-gray-600 mb-6 sm:mb-8">You need to add items to your cart before payment.</p>
             <Link href="/products">
-              <button className="px-8 py-3 font-medium text-center transition-colors duration-200 rounded-md bg-[#c5a87f] text-white hover:bg-[#b39770]">
+              <button className="px-6 sm:px-8 py-3 font-medium text-center transition-colors duration-200 rounded-md bg-[#c5a87f] text-white hover:bg-[#b39770]">
                 Browse Products
               </button>
             </Link>
           </div>
         ) : (
-          <div className="mb-16">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="mb-12 sm:mb-16">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
               {/* Left Column - Payment Options */}
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 order-2 lg:order-1">
                 <div className="bg-white border border-gray-200 rounded-md shadow-sm">
-                  <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-xl font-display text-[#1e2832]">Choose Payment Mode</h2>
+                  <div className="p-3 sm:p-4 border-b border-gray-200">
+                    <h2 className="text-lg sm:text-xl font-display text-[#1e2832]">Choose Payment Mode</h2>
                   </div>
                   
                   <div className="p-0">
                     {/* Payment Options */}
-                    <div className="flex">
-                      <div className="w-full sm:w-64 border-r border-gray-200">
+                    <div className="flex payment-tabs-container">
+                      <div className="w-full sm:w-64 border-r border-gray-200 payment-methods-sidebar">
                         <div 
-                          className={`payment-option p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'recommended' ? 'selected' : ''}`}
+                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'recommended' ? 'selected' : ''}`}
                           onClick={() => handlePaymentMethodChange('recommended')}
                         >
                           <span className="mr-3">⭐</span>
@@ -178,7 +224,7 @@ const PaymentPage = () => {
                         </div>
                         
                         <div 
-                          className={`payment-option p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'cod' ? 'selected' : ''}`}
+                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'cod' ? 'selected' : ''}`}
                           onClick={() => handlePaymentMethodChange('cod')}
                         >
                           <span className="mr-3">💵</span>
@@ -186,7 +232,7 @@ const PaymentPage = () => {
                         </div>
                         
                         <div 
-                          className={`payment-option p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'upi' ? 'selected' : ''}`}
+                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'upi' ? 'selected' : ''}`}
                           onClick={() => handlePaymentMethodChange('upi')}
                         >
                           <span className="mr-3">📱</span>
@@ -194,7 +240,7 @@ const PaymentPage = () => {
                         </div>
                         
                         <div 
-                          className={`payment-option p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'card' ? 'selected' : ''}`}
+                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'card' ? 'selected' : ''}`}
                           onClick={() => handlePaymentMethodChange('card')}
                         >
                           <span className="mr-3">💳</span>
@@ -202,13 +248,13 @@ const PaymentPage = () => {
                         </div>
                       </div>
                       
-                      <div className="flex-1 p-6">
+                      <div className="flex-1 p-3 sm:p-6 payment-content-area">
                         {selectedPaymentMethod === 'recommended' && (
                           <div>
                             <p className="text-gray-700 mb-4">We recommend paying with UPI for fastest processing.</p>
                             <div className="mb-4">
                               {/* Same as UPI option below */}
-                              <div className="text-xl font-medium text-[#1e2832] mb-4">Pay using UPI</div>
+                              <div className="text-lg sm:text-xl font-medium text-[#1e2832] mb-4">Pay using UPI</div>
                               
                               <div className="space-y-4">
                                 <label className="flex items-center">
@@ -220,7 +266,7 @@ const PaymentPage = () => {
                                     className="mr-3 accent-[#c5a87f]"
                                   />
                                   <div className="flex items-center">
-                                    <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
                                       <span className="text-lg">🔍</span>
                                     </div>
                                     <span className="font-medium text-gray-800 upi-option-label">Scan & Pay</span>
@@ -236,7 +282,7 @@ const PaymentPage = () => {
                                     className="mr-3 accent-[#c5a87f]"
                                   />
                                   <div className="flex items-center">
-                                    <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
                                       <span className="text-lg">📱</span>
                                     </div>
                                     <span className="font-medium upi-option-label">Enter UPI ID</span>
@@ -244,7 +290,7 @@ const PaymentPage = () => {
                                 </label>
                                 
                                 {upiOption === 'id' && (
-                                  <div className="ml-8 mt-4">
+                                  <div className="ml-6 sm:ml-8 mt-4">
                                     <input
                                       type="text"
                                       value={upiId}
@@ -256,9 +302,9 @@ const PaymentPage = () => {
                                 )}
                                 
                                 {upiOption === 'scan' && (
-                                  <div className="ml-8 mt-4 text-center">
-                                    <div className="inline-block border border-gray-200 p-4 rounded">
-                                      <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
+                                  <div className="ml-6 sm:ml-8 mt-4 text-center">
+                                    <div className="inline-block border border-gray-200 p-4 rounded upi-qr-container">
+                                      <div className="w-36 h-36 sm:w-48 sm:h-48 bg-gray-100 flex items-center justify-center upi-qr-code">
                                         <div className="text-center">
                                           <p className="text-sm text-gray-500 mb-2">QR Code will appear here</p>
                                           <p className="text-xs text-gray-400">Scan with any UPI app</p>
@@ -289,7 +335,7 @@ const PaymentPage = () => {
                         
                         {selectedPaymentMethod === 'upi' && (
                           <div>
-                            <div className="text-xl font-medium text-[#1e2832] mb-4">Pay using UPI</div>
+                            <div className="text-lg sm:text-xl font-medium text-[#1e2832] mb-4">Pay using UPI</div>
                             
                             <div className="space-y-4">
                               <label className="flex items-center">
@@ -301,7 +347,7 @@ const PaymentPage = () => {
                                   className="mr-3 accent-[#c5a87f]"
                                 />
                                 <div className="flex items-center">
-                                  <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
+                                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
                                     <span className="text-lg">🔍</span>
                                   </div>
                                   <span className="font-medium text-gray-800 upi-option-label">Scan & Pay</span>
@@ -317,7 +363,7 @@ const PaymentPage = () => {
                                   className="mr-3 accent-[#c5a87f]"
                                 />
                                 <div className="flex items-center">
-                                  <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
+                                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
                                     <span className="text-lg">📱</span>
                                   </div>
                                   <span className="font-medium upi-option-label">Enter UPI ID</span>
@@ -325,7 +371,7 @@ const PaymentPage = () => {
                               </label>
                               
                               {upiOption === 'id' && (
-                                <div className="ml-8 mt-4">
+                                <div className="ml-6 sm:ml-8 mt-4">
                                   <input
                                     type="text"
                                     value={upiId}
@@ -337,9 +383,9 @@ const PaymentPage = () => {
                               )}
                               
                               {upiOption === 'scan' && (
-                                <div className="ml-8 mt-4 text-center">
-                                  <div className="inline-block border border-gray-200 p-4 rounded">
-                                    <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
+                                <div className="ml-6 sm:ml-8 mt-4 text-center">
+                                  <div className="inline-block border border-gray-200 p-4 rounded upi-qr-container">
+                                    <div className="w-36 h-36 sm:w-48 sm:h-48 bg-gray-100 flex items-center justify-center upi-qr-code">
                                       <div className="text-center">
                                         <p className="text-sm text-gray-500 mb-2">QR Code will appear here</p>
                                         <p className="text-xs text-gray-400">Scan with any UPI app</p>
@@ -354,7 +400,7 @@ const PaymentPage = () => {
                         
                         {selectedPaymentMethod === 'card' && (
                           <div>
-                            <div className="text-xl font-medium text-[#1e2832] mb-4">CREDIT/ DEBIT CARD</div>
+                            <div className="text-lg sm:text-xl font-medium text-[#1e2832] mb-4">CREDIT/ DEBIT CARD</div>
                             
                             <div className="mb-6">
                               <p className="text-sm text-[#c5a87f] mb-6">Please ensure your card can be used for online transactions. <span className="underline">Know More</span></p>
@@ -382,7 +428,7 @@ const PaymentPage = () => {
                                   />
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 card-inputs-grid">
                                   <input
                                     type="text"
                                     name="expiry"
@@ -435,18 +481,18 @@ const PaymentPage = () => {
               </div>
               
               {/* Right Column - Order Summary */}
-              <div className="lg:col-span-1">
+              <div className="lg:col-span-1 order-1 lg:order-2 mb-6 lg:mb-0">
                 <div className="bg-white border border-gray-200 rounded-md shadow-sm sticky top-20">
-                  <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-xl font-display text-[#1e2832]">Order Summary</h2>
+                  <div className="p-3 sm:p-4 border-b border-gray-200">
+                    <h2 className="text-lg sm:text-xl font-display text-[#1e2832]">Order Summary</h2>
                   </div>
                   
-                  <div className="p-4">
+                  <div className="p-3 sm:p-4">
                     {/* Order Items */}
-                    <div className="max-h-60 overflow-y-auto mb-4">
+                    <div className="max-h-48 sm:max-h-60 overflow-y-auto mb-4">
                       {cartItems.map((item) => (
                         <div key={item.id} className="flex py-3 border-b border-gray-100">
-                          <div className="w-16 h-16 bg-gray-50 relative flex-shrink-0">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-50 relative flex-shrink-0">
                             <Image
                               src={item.image}
                               alt={item.name}
@@ -454,15 +500,15 @@ const PaymentPage = () => {
                               className="object-cover"
                             />
                           </div>
-                          <div className="ml-4 flex-1">
-                            <p className="text-sm text-gray-900 font-medium">{item.name}</p>
+                          <div className="ml-3 sm:ml-4 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-900 font-medium">{item.name}</p>
                             <div className="text-xs text-gray-500 mt-1">
                               {item.size && <span>Size: {item.size.toUpperCase()} {item.color && '|'} </span>}
                               {item.color && <span>Color: {item.color}</span>}
                             </div>
-                            <div className="flex justify-between mt-2">
-                              <span className="text-sm text-gray-700 font-medium">Qty: {item.quantity}</span>
-                              <span className="text-sm font-medium order-item-details">₹{item.price.toLocaleString()}</span>
+                            <div className="flex justify-between mt-1 sm:mt-2">
+                              <span className="text-xs sm:text-sm text-gray-700 font-medium">Qty: {item.quantity}</span>
+                              <span className="text-xs sm:text-sm font-medium order-item-details">₹{item.price.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>

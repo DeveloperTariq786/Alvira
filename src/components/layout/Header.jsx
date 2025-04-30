@@ -35,19 +35,25 @@ const Header = () => {
   return (
     <header className="fixed top-0 left-0 w-full bg-white z-50 shadow-sm">
       <div className="container mx-auto px-4 flex items-center justify-between h-16">
-        {/* Logo */}
-        <Link href="/" className="flex items-center">
-          <div className="relative w-10 h-10 overflow-hidden rounded-full border-2 border-secondary/50 shadow-sm hover:shadow-md transition-all duration-300">
-            <Image 
-              src="/logo.jpg" 
-              alt="Alvira Logo" 
-              fill
-              sizes="40px"
-              className="object-cover scale-105"
-              priority
-            />
+        {/* Logo and brand section */}
+        <div className="flex items-center">
+          <Link href="/" className="flex items-center">
+            <div className="relative w-10 h-10 overflow-hidden rounded-full border-2 border-secondary/50 shadow-sm hover:shadow-md transition-all duration-300">
+              <Image 
+                src="/logo.jpg" 
+                alt="Alvira Logo" 
+                fill
+                sizes="40px"
+                className="object-cover scale-105"
+                priority
+              />
+            </div>
+          </Link>
+          <div className="ml-3 flex flex-col items-center">
+            <div className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-wide">ALVIRA</div>
+            <div className="text-xs text-gray-600 font-light tracking-wide text-center">A house of hand embroidery</div>
           </div>
-        </Link>
+        </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8">

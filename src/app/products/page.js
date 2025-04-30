@@ -21,6 +21,8 @@ const ProductsContent = () => {
   const [sortOption, setSortOption] = useState('newest');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [selectedFabric, setSelectedFabric] = useState('');
+  const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
 
   // Get all products and apply initial filter
   useEffect(() => {
@@ -54,6 +56,11 @@ const ProductsContent = () => {
       result = result.filter(product => product.isNew);
     }
     
+    // Apply "On Sale" filter to show only discounted products
+    if (showDiscountedOnly) {
+      result = result.filter(product => product.discount);
+    }
+    
     // Apply rating filter
     if (minRating > 0) {
       result = result.filter(product => product.rating >= minRating);
@@ -61,6 +68,14 @@ const ProductsContent = () => {
     
     // Apply price filter
     result = result.filter(product => product.price <= priceRange);
+    
+    // Apply fabric filter
+    if (selectedFabric) {
+      result = result.filter(product => 
+        product.fabric === selectedFabric || 
+        (product.tags && product.tags.includes(selectedFabric.toLowerCase()))
+      );
+    }
     
     // Apply sorting
     switch (sortOption) {
@@ -78,12 +93,15 @@ const ProductsContent = () => {
       case 'price-high-low':
         result = result.sort((a, b) => b.price - a.price);
         break;
+      case 'discount-high-low':
+        result = result.sort((a, b) => (b.discount || 0) - (a.discount || 0));
+        break;
       default:
         break;
     }
     
     setFilteredProducts(result);
-  }, [products, showNewOnly, minRating, priceRange, sortOption]);
+  }, [products, showNewOnly, minRating, priceRange, sortOption, selectedFabric, showDiscountedOnly]);
 
   // Format category name for display
   const formatCategoryName = (category) => {
@@ -110,12 +128,19 @@ const ProductsContent = () => {
     setMinRating(rating);
   };
 
+  // Handle fabric selection
+  const handleFabricChange = (fabric) => {
+    setSelectedFabric(fabric);
+  };
+
   // Clear all filters
   const clearAllFilters = () => {
     setPriceRange(50000);
     setShowNewOnly(false);
     setMinRating(0);
     setSortOption('newest');
+    setSelectedFabric('');
+    setShowDiscountedOnly(false);
   };
 
   // Toggle sort dropdown
@@ -151,7 +176,8 @@ const ProductsContent = () => {
               >
                 <span>{sortOption === 'newest' ? 'Newest' : 
                        sortOption === 'price-low-high' ? 'Low to High' :
-                       'High to Low'}</span>
+                       sortOption === 'price-high-low' ? 'High to Low' :
+                       'Highest Discount'}</span>
                 <svg 
                   className="w-4 h-4 ml-1" 
                   fill="none" 
@@ -183,6 +209,15 @@ const ProductsContent = () => {
                       onClick={() => handleSortChange('price-high-low')}
                     >
                       High to Low
+                    </li>
+                    <li 
+                      className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'discount-high-low' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      onClick={() => handleSortChange('discount-high-low')}
+                    >
+                      <span className="flex items-center">
+                        Highest Discount
+                        <span className="ml-2 px-1.5 py-0.5 bg-red-600 text-white text-xs rounded-sm">Sale</span>
+                      </span>
                     </li>
                   </ul>
                 </div>
@@ -236,6 +271,90 @@ const ProductsContent = () => {
               />
             </div>
             
+            {/* Fabric Segment Filter - Mobile */}
+            <div className="mb-8">
+              <h3 className="text-xl mb-4 font-medium text-black">Fabric Segment</h3>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-fabric-all"
+                    name="mobile-fabric"
+                    checked={selectedFabric === ''}
+                    onChange={() => handleFabricChange('')}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-fabric-all" className="text-black">All Fabrics</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-fabric-cotton"
+                    name="mobile-fabric"
+                    checked={selectedFabric === 'Cotton'}
+                    onChange={() => handleFabricChange('Cotton')}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-fabric-cotton" className="text-black">Cotton</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-fabric-organza"
+                    name="mobile-fabric"
+                    checked={selectedFabric === 'Organza'}
+                    onChange={() => handleFabricChange('Organza')}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-fabric-organza" className="text-black">Organza</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-fabric-crepe"
+                    name="mobile-fabric"
+                    checked={selectedFabric === 'Crepe'}
+                    onChange={() => handleFabricChange('Crepe')}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-fabric-crepe" className="text-black">Crepe</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-fabric-wool"
+                    name="mobile-fabric"
+                    checked={selectedFabric === 'Wool'}
+                    onChange={() => handleFabricChange('Wool')}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-fabric-wool" className="text-black">Wool</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-fabric-reyan"
+                    name="mobile-fabric"
+                    checked={selectedFabric === 'Reyan'}
+                    onChange={() => handleFabricChange('Reyan')}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-fabric-reyan" className="text-black">Reyan</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="mobile-fabric-silk"
+                    name="mobile-fabric"
+                    checked={selectedFabric === 'Silk'}
+                    onChange={() => handleFabricChange('Silk')}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-fabric-silk" className="text-black">Silk</label>
+                </div>
+              </div>
+            </div>
+            
             {/* Rating Filter */}
             <div className="mb-8">
               <h3 className="text-xl mb-4 font-medium text-black">Rating</h3>
@@ -279,15 +398,30 @@ const ProductsContent = () => {
             {/* New Arrivals Filter */}
             <div className="mb-8">
               <h3 className="text-xl mb-4 font-medium text-black">Product Type</h3>
-              <div className="flex items-center">
-                <input 
-                  type="checkbox" 
-                  id="mobile-new-only"
-                  checked={showNewOnly}
-                  onChange={() => setShowNewOnly(!showNewOnly)}
-                  className="mr-3 h-5 w-5 accent-secondary"
-                />
-                <label htmlFor="mobile-new-only" className="text-black">New Arrivals Only</label>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    id="mobile-new-only"
+                    checked={showNewOnly}
+                    onChange={() => setShowNewOnly(!showNewOnly)}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-new-only" className="text-black">New Arrivals Only</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    id="mobile-sale-only"
+                    checked={showDiscountedOnly}
+                    onChange={() => setShowDiscountedOnly(!showDiscountedOnly)}
+                    className="mr-3 h-5 w-5 accent-secondary"
+                  />
+                  <label htmlFor="mobile-sale-only" className="text-black flex items-center">
+                    <span>On Sale</span>
+                    <span className="ml-2 px-1.5 py-0.5 bg-red-600 text-white text-xs rounded">Sale</span>
+                  </label>
+                </div>
               </div>
             </div>
             
@@ -347,6 +481,90 @@ const ProductsContent = () => {
                 />
               </div>
               
+              {/* Fabric Segment Filter - Desktop */}
+              <div className="mb-8">
+                <h3 className="text-xl mb-4 font-medium text-black">Fabric Segment</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="fabric-all"
+                      name="fabric"
+                      checked={selectedFabric === ''}
+                      onChange={() => handleFabricChange('')}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="fabric-all" className="text-black">All Fabrics</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="fabric-cotton"
+                      name="fabric"
+                      checked={selectedFabric === 'Cotton'}
+                      onChange={() => handleFabricChange('Cotton')}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="fabric-cotton" className="text-black">Cotton</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="fabric-organza"
+                      name="fabric"
+                      checked={selectedFabric === 'Organza'}
+                      onChange={() => handleFabricChange('Organza')}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="fabric-organza" className="text-black">Organza</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="fabric-crepe"
+                      name="fabric"
+                      checked={selectedFabric === 'Crepe'}
+                      onChange={() => handleFabricChange('Crepe')}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="fabric-crepe" className="text-black">Crepe</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="fabric-wool"
+                      name="fabric"
+                      checked={selectedFabric === 'Wool'}
+                      onChange={() => handleFabricChange('Wool')}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="fabric-wool" className="text-black">Wool</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="fabric-reyan"
+                      name="fabric"
+                      checked={selectedFabric === 'Reyan'}
+                      onChange={() => handleFabricChange('Reyan')}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="fabric-reyan" className="text-black">Reyan</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="fabric-silk"
+                      name="fabric"
+                      checked={selectedFabric === 'Silk'}
+                      onChange={() => handleFabricChange('Silk')}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="fabric-silk" className="text-black">Silk</label>
+                  </div>
+                </div>
+              </div>
+              
               {/* Rating Filter */}
               <div className="mb-8">
                 <h3 className="text-xl mb-4 font-medium text-black">Rating</h3>
@@ -390,15 +608,30 @@ const ProductsContent = () => {
               {/* New Arrivals Filter */}
               <div className="mb-8">
                 <h3 className="text-xl mb-4 font-medium text-black">Product Type</h3>
-                <div className="flex items-center">
-                  <input 
-                    type="checkbox" 
-                    id="new-only"
-                    checked={showNewOnly}
-                    onChange={() => setShowNewOnly(!showNewOnly)}
-                    className="mr-3 h-5 w-5 accent-secondary"
-                  />
-                  <label htmlFor="new-only" className="text-black">New Arrivals Only</label>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      id="new-only"
+                      checked={showNewOnly}
+                      onChange={() => setShowNewOnly(!showNewOnly)}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="new-only" className="text-black">New Arrivals Only</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      id="sale-only"
+                      checked={showDiscountedOnly}
+                      onChange={() => setShowDiscountedOnly(!showDiscountedOnly)}
+                      className="mr-3 h-5 w-5 accent-secondary"
+                    />
+                    <label htmlFor="sale-only" className="text-black flex items-center">
+                      <span>On Sale</span>
+                      <span className="ml-2 px-1.5 py-0.5 bg-red-600 text-white text-xs rounded">Sale</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -421,7 +654,8 @@ const ProductsContent = () => {
                 >
                   <span>{sortOption === 'newest' ? 'Newest' : 
                          sortOption === 'price-low-high' ? 'Price: Low to High' :
-                         'Price: High to Low'}</span>
+                         sortOption === 'price-high-low' ? 'Price: High to Low' :
+                         'Highest Discount'}</span>
                   <svg 
                     className="w-4 h-4 ml-2" 
                     fill="none" 
@@ -453,6 +687,15 @@ const ProductsContent = () => {
                         onClick={() => handleSortChange('price-high-low')}
                       >
                         Price: High to Low
+                      </li>
+                      <li 
+                        className={`px-4 py-2 cursor-pointer text-black ${sortOption === 'discount-high-low' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                        onClick={() => handleSortChange('discount-high-low')}
+                      >
+                        <span className="flex items-center">
+                          Highest Discount
+                          <span className="ml-2 px-1.5 py-0.5 bg-red-600 text-white text-xs rounded-sm">Sale</span>
+                        </span>
                       </li>
                     </ul>
                   </div>

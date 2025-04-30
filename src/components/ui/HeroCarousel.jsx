@@ -1,20 +1,25 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Button from './Button';
 import { useRouter } from 'next/navigation';
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const HeroCarousel = ({ slides }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
+  const touchStartX = useRef(null);
+  const touchEndX = useRef(null);
+  const carouselRef = useRef(null);
+  const minSwipeDistance = 50; // Minimum swipe distance to trigger slide change
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
   }, [slides.length]);
 
-  const prevSlide = () => {
+  const prevSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-  };
+  }, [slides.length]);
 
   const goToSlide = (index) => {
     setCurrentSlide(index);
@@ -22,6 +27,33 @@ const HeroCarousel = ({ slides }) => {
 
   const handleButtonClick = (category) => {
     router.push(`/products?category=${category}`);
+  };
+
+  // Handle touch events for swipe
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    
+    const distance = touchStartX.current - touchEndX.current;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      nextSlide();
+    } else if (isRightSwipe) {
+      prevSlide();
+    }
+    
+    // Reset values
+    touchStartX.current = null;
+    touchEndX.current = null;
   };
 
   // Auto-advance slides
@@ -38,7 +70,13 @@ const HeroCarousel = ({ slides }) => {
   }
 
   return (
-    <div className="relative h-[85vh] w-full overflow-hidden">
+    <div 
+      className="relative h-[85vh] w-full overflow-hidden"
+      ref={carouselRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Slides */}
       <div className="h-full w-full">
         {slides.map((slide, index) => (
@@ -76,6 +114,27 @@ const HeroCarousel = ({ slides }) => {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Arrow Navigation - Only visible on desktop */}
+      <div className="hidden md:block">
+        {/* Left Arrow */}
+        <button 
+          onClick={prevSlide} 
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-all"
+          aria-label="Previous slide"
+        >
+          <FaChevronLeft size={20} />
+        </button>
+
+        {/* Right Arrow */}
+        <button 
+          onClick={nextSlide} 
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-all"
+          aria-label="Next slide"
+        >
+          <FaChevronRight size={20} />
+        </button>
       </div>
 
       {/* Indicators */}
