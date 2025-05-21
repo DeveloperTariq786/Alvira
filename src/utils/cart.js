@@ -1,81 +1,135 @@
-export const addToCart = (product) => {
-  // Check if localStorage is available (client-side only)
-  if (typeof window === 'undefined') return;
-  
-  const cart = JSON.parse(localStorage.getItem('cart')) || [];
-  
-  // For products with the same ID, size, and color, increase quantity
-  const existingItemIndex = cart.findIndex(
-    item => item.id === product.id && 
-    item.size === product.size && 
-    item.color === product.color
-  );
+import { updateCart as updateCartAPI, getCart as getCartAPI, clearCart as clearCartAPI } from './api';
 
-  if (existingItemIndex !== -1) {
-    // Update existing item
-    cart[existingItemIndex].quantity += product.quantity;
-  } else {
-    // Add new item
-    cart.push({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      quantity: product.quantity,
-      size: product.size,
-      color: product.color
-    });
+export const addToCart = async (product) => {
+  try {
+    // Get current cart items from API
+    let cartItems = [];
+    try {
+      const cart = await getCartAPI();
+      cartItems = cart.items || [];
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      // Continue with empty cart if there's an error
+    }
+    
+    // For products with the same ID, size, and color, increase quantity
+    const existingItemIndex = cartItems.findIndex(
+      item => item.productId === product.id
+    );
+
+    let updatedItems = [];
+    
+    if (existingItemIndex !== -1) {
+      // Update existing item quantity
+      updatedItems = cartItems.map((item, index) => {
+        if (index === existingItemIndex) {
+          return {
+            ...item,
+            quantity: item.quantity + product.quantity
+          };
+        }
+        return item;
+      });
+    } else {
+      // Add new item
+      updatedItems = [
+        ...cartItems,
+        {
+          productId: product.id,
+          quantity: product.quantity
+        }
+      ];
+    }
+    
+    // Update cart on server
+    const updatedCart = await updateCartAPI(updatedItems);
+    
+    // Trigger storage event for real-time cart updates
+    window.dispatchEvent(new Event('cart-updated'));
+    
+    return updatedCart;
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    throw error;
   }
-
-  localStorage.setItem('cart', JSON.stringify(cart));
-  
-  // Trigger storage event for real-time cart updates
-  window.dispatchEvent(new Event('storage'));
 };
 
-export const getCartItems = () => {
-  // Check if localStorage is available (client-side only)
-  if (typeof window === 'undefined') return [];
-  
-  return JSON.parse(localStorage.getItem('cart')) || [];
+export const getCartItems = async () => {
+  try {
+    const cart = await getCartAPI();
+    return cart.items || [];
+  } catch (error) {
+    console.error('Error fetching cart items:', error);
+    return [];
+  }
 };
 
-export const clearCart = () => {
-  // Check if localStorage is available (client-side only)
-  if (typeof window === 'undefined') return;
-  
-  localStorage.removeItem('cart');
-  
-  // Trigger storage event for real-time cart updates
-  window.dispatchEvent(new Event('storage'));
+export const clearCart = async () => {
+  try {
+    await clearCartAPI();
+    
+    // Trigger storage event for real-time cart updates
+    window.dispatchEvent(new Event('cart-updated'));
+  } catch (error) {
+    console.error('Error clearing cart:', error);
+    throw error;
+  }
 };
 
-export const updateCartItemQuantity = (id, quantity) => {
-  // Check if localStorage is available (client-side only)
-  if (typeof window === 'undefined') return [];
-  
-  const cart = JSON.parse(localStorage.getItem('cart')) || [];
-  const updatedCart = cart.map(item => 
-    item.id === id ? { ...item, quantity } : item
-  );
-  localStorage.setItem('cart', JSON.stringify(updatedCart));
-  
-  // Trigger storage event for real-time cart updates
-  window.dispatchEvent(new Event('storage'));
-  
-  return updatedCart;
+export const updateCartItemQuantity = async (id, quantity) => {
+  try {
+    // Get current cart items
+    let cartItems = [];
+    try {
+      const cart = await getCartAPI();
+      cartItems = cart.items || [];
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      return [];
+    }
+    
+    // Update the quantity of the specified item
+    const updatedItems = cartItems.map(item => 
+      item.productId === id ? { ...item, quantity } : item
+    );
+    
+    // Update cart on server
+    const updatedCart = await updateCartAPI(updatedItems);
+    
+    // Trigger storage event for real-time cart updates
+    window.dispatchEvent(new Event('cart-updated'));
+    
+    return updatedCart.items;
+  } catch (error) {
+    console.error('Error updating cart item quantity:', error);
+    throw error;
+  }
 };
 
-export const removeFromCart = (id) => {
-  // Check if localStorage is available (client-side only)
-  if (typeof window === 'undefined') return [];
-  
-  const cart = JSON.parse(localStorage.getItem('cart')) || [];
-  const updatedCart = cart.filter(item => item.id !== id);
-  localStorage.setItem('cart', JSON.stringify(updatedCart));
-  
-  // Trigger storage event for real-time cart updates
-  window.dispatchEvent(new Event('storage'));
-  
-  return updatedCart;
+export const removeFromCart = async (id) => {
+  try {
+    // Get current cart items
+    let cartItems = [];
+    try {
+      const cart = await getCartAPI();
+      cartItems = cart.items || [];
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      return [];
+    }
+    
+    // Remove the specified item
+    const updatedItems = cartItems.filter(item => item.productId !== id);
+    
+    // Update cart on server
+    const updatedCart = await updateCartAPI(updatedItems);
+    
+    // Trigger storage event for real-time cart updates
+    window.dispatchEvent(new Event('cart-updated'));
+    
+    return updatedCart.items;
+  } catch (error) {
+    console.error('Error removing item from cart:', error);
+    throw error;
+  }
 }; 

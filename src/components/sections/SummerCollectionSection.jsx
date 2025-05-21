@@ -3,6 +3,40 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 const SummerCollectionSection = ({ collection }) => {
+  if (!collection) return null;
+  // Handle both legacy string category and new category object format
+  const getCategoryParam = () => {
+    if (!collection.category) {
+      return '';
+    }
+    
+    // If category is an object (new format), use its id or name
+    if (typeof collection.category === 'object') {
+      if (collection.category.id) {
+        return collection.category.id;
+      } else if (collection.category.name) {
+        return collection.category.name.toLowerCase().replace(/ /g, '-');
+      }
+    }
+    
+    // If category is a string (old format), remove any 'cat-' prefix first
+    if (typeof collection.category === 'string') {
+      const cleanCategory = collection.category.startsWith('cat-') 
+        ? collection.category.substring(4)
+        : collection.category;
+      return cleanCategory.toLowerCase().replace(/ /g, '-');
+    }
+    
+    // If categoryId is available directly
+    if (collection.categoryId) {
+      return collection.categoryId;
+    }
+    
+    return '';
+  };
+  
+  const categoryParam = getCategoryParam();
+  
   return (
     <section id="summer-collection" className="bg-[#e5dfd9] py-16">
       <div className="container mx-auto max-w-6xl px-4">
@@ -17,7 +51,7 @@ const SummerCollectionSection = ({ collection }) => {
               {collection.additionalText}
             </p>
             <Link 
-              href={`/products?category=${collection.category}`}
+              href={`/products?category=${categoryParam}`}
               className="inline-block px-8 py-3 bg-[#1e2832] text-white font-medium hover:bg-[#d4b78f] transition-colors"
             >
               {collection.buttonText}
@@ -35,8 +69,12 @@ const SummerCollectionSection = ({ collection }) => {
               {/* Badge overlay */}
               <div className="absolute bottom-0 left-0 bg-white p-4 md:p-6 shadow-md">
                 <div className="text-center">
-                  <p className="text-[#d4b78f] text-xl md:text-2xl font-light">{collection.badge.year}</p>
-                  <p className="text-[#1e2832] text-sm md:text-base font-semibold tracking-wider">{collection.badge.text}</p>
+                  <p className="text-[#d4b78f] text-xl md:text-2xl font-light">
+                    {collection.badgeYear || (collection.badge && collection.badge.year) || '2025'}
+                  </p>
+                  <p className="text-[#1e2832] text-sm md:text-base font-semibold tracking-wider">
+                    {collection.badgeText || (collection.badge && collection.badge.text) || 'SUMMER COLLECTION'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -47,4 +85,4 @@ const SummerCollectionSection = ({ collection }) => {
   );
 };
 
-export default SummerCollectionSection; 
+export default SummerCollectionSection;

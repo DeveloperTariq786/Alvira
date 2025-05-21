@@ -4,25 +4,64 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getCartItems } from '@/utils/cart';
+import PhoneVerification from '@/components/ui/PhoneVerification';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [cartItemCount, setCartItemCount] = useState(0);
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const updateCartCount = () => {
-      const items = getCartItems();
-      const count = items.reduce((total, item) => total + item.quantity, 0);
-      setCartItemCount(count);
+    const updateCartCount = async () => {
+      try {
+        const items = await getCartItems();
+        const count = items.reduce((total, item) => total + item.quantity, 0);
+        setCartItemCount(count);
+      } catch (error) {
+        console.error('Error updating cart count:', error);
+        setCartItemCount(0);
+      }
     };
 
     // Initial count
     updateCartCount();
 
-    // Listen for storage changes
-    window.addEventListener('storage', updateCartCount);
-    return () => window.removeEventListener('storage', updateCartCount);
+    // Check authentication status
+    checkAuth();
+
+    // Listen for cart update events
+    window.addEventListener('cart-updated', updateCartCount);
+    window.addEventListener('auth-updated', checkAuth);
+    
+    return () => {
+      window.removeEventListener('cart-updated', updateCartCount);
+      window.removeEventListener('auth-updated', checkAuth);
+    };
   }, []);
+
+  const checkAuth = () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setIsLoggedIn(false);
+      return false;
+    }
+
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp * 1000 < Date.now()) {
+        localStorage.removeItem('token');
+        setIsLoggedIn(false);
+        return false;
+      }
+      setIsLoggedIn(true);
+      return true;
+    } catch (error) {
+      localStorage.removeItem('token');
+      setIsLoggedIn(false);
+      return false;
+    }
+  };
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -30,6 +69,20 @@ const Header = () => {
 
   const closeMenu = () => {
     setIsMenuOpen(false);
+  };
+
+  const handleProfileClick = (e) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      setShowAuthDialog(true);
+    }
+  };
+
+  const handleAuthSuccess = (response) => {
+    localStorage.setItem('token', response.token);
+    setIsLoggedIn(true);
+    setShowAuthDialog(false);
+    window.dispatchEvent(new Event('auth-updated'));
   };
 
   return (
@@ -74,12 +127,17 @@ const Header = () => {
         {/* User Actions - Desktop & Mobile */}
         <div className="flex items-center space-x-5">
           {/* Account Icon */}
-          <button aria-label="Account" className="text-black hover:text-secondary transition-colors">
+          <Link 
+            href="/profile" 
+            aria-label="Account" 
+            className="text-black hover:text-secondary transition-colors"
+            onClick={handleProfileClick}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
-          </button>
+          </Link>
           
           {/* Cart Icon with Badge */}
           <Link href="/cart" className="relative text-black hover:text-secondary transition-colors">
@@ -97,13 +155,27 @@ const Header = () => {
 
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden text-black ml-1"
+            className="md:hidden text-black ml-1 relative"
             onClick={toggleMenu}
             aria-label="Toggle menu"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <div className="w-6 h-6 flex flex-col justify-center items-center">
+              <span 
+                className={`block absolute h-0.5 w-5 bg-current transform transition duration-300 ease-in-out ${
+                  isMenuOpen ? 'rotate-45' : '-translate-y-1.5'
+                }`}
+              ></span>
+              <span 
+                className={`block absolute h-0.5 w-5 bg-current transform transition duration-300 ease-in-out ${
+                  isMenuOpen ? 'opacity-0' : 'opacity-100'
+                }`}
+              ></span>
+              <span 
+                className={`block absolute h-0.5 w-5 bg-current transform transition duration-300 ease-in-out ${
+                  isMenuOpen ? '-rotate-45' : 'translate-y-1.5'
+                }`}
+              ></span>
+            </div>
           </button>
         </div>
       </div>
@@ -141,6 +213,16 @@ const Header = () => {
               NEW COLLECTION
             </Link>
           </nav>
+        </div>
+      )}
+
+      {/* Authentication Dialog */}
+      {showAuthDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <PhoneVerification
+            onSuccess={handleAuthSuccess}
+            onCancel={() => setShowAuthDialog(false)}
+          />
         </div>
       )}
     </header>

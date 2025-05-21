@@ -1,77 +1,294 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getCartItems } from '@/utils/cart';
+import { createCODPayment, createRazorpayPayment, verifyRazorpayPayment, getUserProfile, clearCart } from '@/utils/api';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import LoadingState from '@/components/ui/LoadingState';
 
 const PaymentPage = () => {
   const router = useRouter();
   const [cartItems, setCartItems] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
-  const [taxes, setTaxes] = useState(0);
   const [total, setTotal] = useState(0);
-  const [discount, setDiscount] = useState(0);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('upi');
-  const [upiOption, setUpiOption] = useState('scan');
-  const [upiId, setUpiId] = useState('');
-  const [cardDetails, setCardDetails] = useState({
-    number: '',
-    name: '',
-    expiry: '',
-    cvv: ''
-  });
+  const [loading, setLoading] = useState(true);
+  const [orderId, setOrderId] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('cod'); // cod or online
 
   useEffect(() => {
-    const calculateTotals = (items) => {
-      const itemsSubtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-      const calculatedTaxes = itemsSubtotal * 0.18; // 18% tax rate
-      
-      setSubtotal(itemsSubtotal);
-      setTaxes(calculatedTaxes);
-      setTotal(itemsSubtotal + calculatedTaxes - discount);
+    // Load Razorpay script
+    const loadRazorpayScript = () => {
+      return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => {
+          resolve(true);
+        };
+        script.onerror = () => {
+          resolve(false);
+        };
+        document.body.appendChild(script);
+      });
     };
 
-    const items = getCartItems();
-    setCartItems(items);
-    calculateTotals(items);
-  }, [discount]);
-
-  const handlePaymentMethodChange = (method) => {
-    setSelectedPaymentMethod(method);
-  };
-
-  const handleUpiOptionChange = (option) => {
-    setUpiOption(option);
-  };
-
-  const handleCardInputChange = (e) => {
-    const { name, value } = e.target;
-    setCardDetails(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handlePayNow = () => {
-    // Validate based on payment method
-    if (selectedPaymentMethod === 'card') {
-      if (!cardDetails.number || !cardDetails.name || !cardDetails.expiry || !cardDetails.cvv) {
-        alert('Please fill all card details');
+    // Start loading Razorpay script immediately
+    loadRazorpayScript();
+    
+    // Try to get order summary from session storage immediately
+    let orderSummaryData = {};
+    try {
+      orderSummaryData = JSON.parse(sessionStorage.getItem('orderSummary') || '{}');
+      if (orderSummaryData.orderId) {
+        setOrderId(orderSummaryData.orderId);
+        // If we have order data, we can use it directly instead of refetching
+        if (orderSummaryData.total) {
+          setTotal(orderSummaryData.total);
+        }
+        if (orderSummaryData.subtotal) {
+          setSubtotal(orderSummaryData.subtotal);
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing order summary from session storage:', err);
+    }
+    
+    const calculateTotals = (items) => {
+      if (!Array.isArray(items) || items.length === 0) {
+        // Only set these if we don't already have them from order summary
+        if (!orderSummaryData.subtotal) setSubtotal(0);
+        if (!orderSummaryData.total) setTotal(0);
         return;
       }
-    } else if (selectedPaymentMethod === 'upi' && upiOption === 'id' && !upiId) {
-      alert('Please enter UPI ID');
+      
+      const itemsSubtotal = items.reduce((acc, item) => {
+        const price = Number(item.price) || 0;
+        const quantity = Number(item.quantity) || 0;
+        return acc + (price * quantity);
+      }, 0);
+      
+      // Only update if not already set from order summary
+      if (!orderSummaryData.subtotal) setSubtotal(itemsSubtotal);
+      if (!orderSummaryData.total) setTotal(itemsSubtotal);
+    };
+
+    const fetchCartItems = async () => {
+      try {
+        const items = await getCartItems();
+        setCartItems(Array.isArray(items) ? items : []);
+        calculateTotals(Array.isArray(items) ? items : []);
+      } catch (error) {
+        console.error('Error fetching cart items:', error);
+        setCartItems([]);
+        calculateTotals([]);
+      } finally {
+        // Short timeout to reduce perceived loading time
+        setTimeout(() => {
+          setLoading(false);
+        }, 300);
+      }
+    };
+
+    fetchCartItems();
+  }, []);
+
+  const handlePaymentMethodChange = (method) => {
+    setPaymentMethod(method);
+    
+    // If user selects online payment, immediately initiate Razorpay
+    if (method === 'online') {
+      initiateRazorpayPayment();
+    }
+  };
+
+  const initiateRazorpayPayment = async () => {
+    if (!orderId) {
+      alert('Order information missing. Please return to checkout.');
+      router.push('/checkout');
       return;
     }
     
-    // In a real app, you would handle payment processing here
-    // For this demo, just show a success message
-    alert('Payment successful! Your order has been placed.');
-    router.push('/');
+    try {
+      setLoading(true);
+      
+      // Get user profile for prefill information
+      const userProfile = await getUserProfile();
+      
+      // Create Razorpay payment using API
+      const paymentData = {
+        orderId: orderId,
+        amount: total,
+        currency: 'INR'
+      };
+      
+      const response = await createRazorpayPayment(paymentData);
+      
+      if (!response.success || !response.order || !response.order.id) {
+        throw new Error('Failed to create Razorpay order');
+      }
+      
+      // Configure Razorpay options
+      const options = {
+        key: "rzp_test_rLL4rZbzslJYKw", // Razorpay test key
+        amount: response.order.amount, // Amount from server in paise
+        currency: response.order.currency,
+        name: "Alvira",
+        description: `Order #${orderId.substring(0, 8)}`,
+        order_id: response.order.id, // Use actual Razorpay order ID
+        prefill: {
+          name: userProfile.name || "Customer",
+          email: "customer@example.com",
+          contact: userProfile.phone?.replace(/\+91\s?/, '') || "9876543210",
+        },
+        notes: {
+          orderId: orderId
+        },
+        theme: {
+          color: "#c5a87f", // Beige/gold color to match checkout page
+        },
+        image: "/logo.jpg", // Use logo.jpg for the Razorpay checkout
+        handler: async function (razorpayResponse) {
+          try {
+            // Verify payment with backend
+            const verificationData = {
+              razorpayOrderId: response.order.id,
+              razorpayPaymentId: razorpayResponse.razorpay_payment_id,
+              razorpaySignature: razorpayResponse.razorpay_signature
+            };
+            
+            const verificationResult = await verifyRazorpayPayment(verificationData);
+            
+            if (verificationResult.success) {
+              // Payment successful
+              // Clear session storage
+              sessionStorage.removeItem('orderSummary');
+              await clearCart(); // Clear the cart
+              // Redirect to orders page
+              alert(`Payment Successful! Your order has been placed.`);
+              router.push('/orders');
+            } else {
+              throw new Error('Payment verification failed');
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            alert('Payment verification failed. Please contact support.');
+          }
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Payment cancelled');
+            // Reset to COD if payment modal dismissed
+            setPaymentMethod('cod');
+            setLoading(false);
+          },
+          escape: true,
+          backdropclose: false
+        },
+        config: {
+          display: {
+            blocks: {
+              utib: { //name for AXIS block
+                name: "Pay using Axis Bank",
+                instruments: [
+                  {
+                    method: "card",
+                    issuers: ["UTIB"]
+                  },
+                  {
+                    method: "netbanking",
+                    banks: ["UTIB"]
+                  },
+                ]
+              },
+              other: { //  name for other block
+                name: "Other Payment Methods",
+                instruments: [
+                  {
+                    method: "card",
+                    issuers: ["ICIC"]
+                  },
+                  {
+                    method: 'card',
+                    issuers: ["HDFC"]
+                  },
+                  {
+                    method: 'netbanking',
+                  },
+                  {
+                    method: 'upi'
+                  }
+                ]
+              }
+            },
+            hide: [
+              {
+                method: "paylater"
+              }
+            ],
+            sequence: ["block.utib", "block.other"],
+            preferences: {
+              show_default_blocks: false
+            }
+          }
+        }
+      };
+
+      // Initialize Razorpay
+      const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', function (response) {
+        console.error('Payment failed:', response.error);
+        alert(`Payment failed: ${response.error.description}`);
+        setLoading(false);
+      });
+      
+      razorpay.open();
+    } catch (error) {
+      console.error('Razorpay initialization error:', error);
+      alert('There was an error initializing the payment: ' + (error.message || 'Unknown error'));
+      setLoading(false);
+    }
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!orderId) {
+      alert('Order information missing. Please return to checkout.');
+      router.push('/checkout');
+      return;
+    }
+
+    try {
+      if (paymentMethod === 'online') {
+        await initiateRazorpayPayment();
+      } else if (paymentMethod === 'cod') {
+        // Create COD payment using the API
+        setLoading(true);
+        const paymentData = {
+          orderId: orderId,
+          amount: total,
+          currency: 'INR'
+        };
+        
+        const response = await createCODPayment(paymentData);
+        
+        if (response.success) {
+          // Clear order data from session storage
+          sessionStorage.removeItem('orderSummary');
+          await clearCart(); // Clear the cart
+          // Show success message and redirect to orders page
+          alert('Order placed successfully! You will pay ₹' + total + ' on delivery.');
+          router.push('/orders');
+        } else {
+          throw new Error(response.error || 'Failed to create COD payment');
+        }
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('There was an error processing your payment: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -93,110 +310,173 @@ const PaymentPage = () => {
           font-weight: 500;
         }
         
-        .address-type-label {
-          color: #333333;
-          font-weight: 500;
-        }
-        
-        .order-item-details {
-          color: #333333 !important;
-          font-weight: 500;
-        }
-        
         .payment-option {
-          border-left: 4px solid transparent;
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         
         .payment-option.selected {
-          border-left-color: #c5a87f;
+          border-color: #1e2832;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .payment-option:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        /* Make payment text more visible */
+        .payment-label {
+          color: #1e2832 !important;
+          font-weight: 600 !important;
+        }
+        
+        .payment-amount {
+          color: #1e2832 !important;
+          font-weight: 600 !important;
+        }
+        
+        .radio-custom {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 2px solid #d1d5db;
+          display: inline-block;
+          position: relative;
+          transition: all 0.2s ease;
+          background-color: white;
+        }
+        
+        .radio-custom.selected {
+          border-color: #1e2832;
+          background-color: #1e2832;
+        }
+        
+        .radio-custom.selected:after {
+          content: '';
+          width: 12px;
+          height: 12px;
+          background: white;
+          border-radius: 50%;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+        
+        .expanded-section {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease-out;
+        }
+        
+        .expanded-section.open {
+          max-height: 500px;
+        }
+
+        /* Dark theme adjustments - keep elements styled but background white */
+        :global(.dark) body {
+          background-color: white !important;
+        }
+        
+        :global(.dark) .order-summary-amount {
+          color: #333333 !important;
+        }
+        
+        :global(.dark) .payment-label {
+          color: #1e2832 !important;
+        }
+        
+        :global(.dark) .payment-amount {
+          color: #1e2832 !important;
+        }
+
+        :global(.dark) .payment-option {
+          background-color: white;
+          border-color: #d1d5db;
+        }
+
+        :global(.dark) .payment-option.selected {
+          background-color: rgba(30, 40, 50, 0.07);
+          border-color: #1e2832;
+        }
+
+        :global(.dark) .radio-custom {
+          border-color: #d1d5db;
+        }
+
+        :global(.dark) .radio-custom.selected {
+          border-color: #1e2832;
+          background-color: #1e2832;
+        }
+        
+        /* Make summary labels and amounts more visible */
+        .summary-label {
+          color: #1e2832 !important;
+          font-weight: 500 !important;
+        }
+        
+        .summary-amount {
+          color: #1e2832 !important;
+          font-weight: 600 !important;
+        }
+        
+        :global(.dark) .summary-label,
+        :global(.dark) .summary-amount {
+          color: #1e2832 !important;
+        }
+
+        /* Make payment labels more professional */
+        .payment-method-container {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        
+        .payment-label {
+          color: #1e2832 !important;
+          font-weight: 600 !important;
+          letter-spacing: 0.01em;
+        }
+        
+        .payment-amount {
+          color: #1e2832 !important;
+          font-weight: 700 !important;
+          padding: 4px 10px;
           background-color: #f9f9f9;
+          border-radius: 4px;
+        }
+
+        /* Place order button pulse animation */
+        @keyframes soft-pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+          100% { transform: scale(1); }
         }
         
-        .payment-option:hover:not(.selected) {
-          background-color: #f5f5f5;
+        .place-order-btn {
+          animation: soft-pulse 2s infinite;
+          transition: all 0.3s ease;
         }
         
-        .total-heading {
-          color: #1e2832 !important;
-          font-weight: 600;
-        }
-        
-        .payment-input {
-          border: 1px solid #e2e8f0;
-          border-radius: 0.375rem;
-          padding: 0.75rem;
-          width: 100%;
-          font-size: 0.875rem;
-          transition: all 0.2s;
-        }
-        
-        .payment-input:focus {
-          border-color: #c5a87f;
-          outline: none;
-          box-shadow: 0 0 0 1px #c5a87f;
-        }
-        
-        .upi-option-label {
-          color: #1e2832 !important;
-          font-weight: 600;
-          font-size: 1rem;
-        }
-        
-        /* Mobile responsive styles */
-        @media (max-width: 640px) {
-          .payment-tabs-container {
-            flex-direction: column;
-          }
-          
-          .payment-methods-sidebar {
-            width: 100%;
-            border-right: none;
-            border-bottom: 1px solid #e2e8f0;
-          }
-          
-          .payment-content-area {
-            padding: 1rem;
-          }
-          
-          .payment-option {
-            border-left: none;
-            border-left-width: 0;
-            border-left-style: none;
-            padding: 0.75rem 1rem;
-          }
-          
-          .payment-option.selected {
-            border-left: none;
-            border-left-width: 0;
-            background-color: #f9f9f9;
-            border-radius: 0.375rem;
-          }
-          
-          .card-inputs-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .upi-qr-container {
-            width: 100%;
-          }
-          
-          .upi-qr-code {
-            width: 100%;
-            max-width: 180px;
-            height: auto;
-            aspect-ratio: 1/1;
-          }
+        .place-order-btn:hover {
+          animation: none;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
       `}</style>
       
       <div className="container mx-auto px-4 py-6 mt-16 sm:py-8">
-        {cartItems.length === 0 ? (
+        {loading ? (
+          <LoadingState message="Processing your payment..." />
+        ) : cartItems.length === 0 ? (
           <div className="text-center py-12 max-w-md mx-auto">
             <h2 className="text-2xl sm:text-3xl font-display mb-4 text-black">Your Cart is Empty</h2>
             <p className="text-gray-600 mb-6 sm:mb-8">You need to add items to your cart before payment.</p>
             <Link href="/products">
-              <button className="px-6 sm:px-8 py-3 font-medium text-center transition-colors duration-200 rounded-md bg-[#c5a87f] text-white hover:bg-[#b39770]">
+              <button className="px-6 sm:px-8 py-3 font-medium text-center transition-colors duration-200 rounded-md bg-[#1e2832] text-white hover:bg-[#2a3642]">
                 Browse Products
               </button>
             </Link>
@@ -204,276 +484,78 @@ const PaymentPage = () => {
         ) : (
           <div className="mb-12 sm:mb-16">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-              {/* Left Column - Payment Options */}
+              {/* Left Column - Payment Info */}
               <div className="lg:col-span-2 order-2 lg:order-1">
                 <div className="bg-white border border-gray-200 rounded-md shadow-sm">
-                  <div className="p-3 sm:p-4 border-b border-gray-200">
-                    <h2 className="text-lg sm:text-xl font-display text-[#1e2832]">Choose Payment Mode</h2>
+                  <div className="p-5 border-b border-gray-200 bg-gray-50">
+                    <h2 className="text-xl font-display font-semibold text-[#1e2832]">Select Payment Method</h2>
                   </div>
                   
-                  <div className="p-0">
-                    {/* Payment Options */}
-                    <div className="flex payment-tabs-container">
-                      <div className="w-full sm:w-64 border-r border-gray-200 payment-methods-sidebar">
-                        <div 
-                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'recommended' ? 'selected' : ''}`}
-                          onClick={() => handlePaymentMethodChange('recommended')}
-                        >
-                          <span className="mr-3">⭐</span>
-                          <span className="font-medium text-gray-800">Recommended</span>
-                        </div>
-                        
-                        <div 
-                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'cod' ? 'selected' : ''}`}
-                          onClick={() => handlePaymentMethodChange('cod')}
-                        >
-                          <span className="mr-3">💵</span>
-                          <span className="font-medium text-gray-800">Cash On Delivery</span>
-                        </div>
-                        
-                        <div 
-                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'upi' ? 'selected' : ''}`}
-                          onClick={() => handlePaymentMethodChange('upi')}
-                        >
-                          <span className="mr-3">📱</span>
-                          <span className="font-medium text-gray-800">UPI (Pay via any App)</span>
-                        </div>
-                        
-                        <div 
-                          className={`payment-option p-3 sm:p-4 flex items-center cursor-pointer ${selectedPaymentMethod === 'card' ? 'selected' : ''}`}
-                          onClick={() => handlePaymentMethodChange('card')}
-                        >
-                          <span className="mr-3">💳</span>
-                          <span className="font-medium text-gray-800">Credit/Debit Card</span>
+                  <div className="p-5">
+                    <div className="payment-method-container">
+                      {/* Cash on Delivery Option */}
+                      <div 
+                        className={`payment-option border p-1 cursor-pointer ${
+                          paymentMethod === 'cod' 
+                            ? 'selected border-[#1e2832] bg-[#f9f9f9]' 
+                            : 'border-gray-200'
+                        }`}
+                        onClick={() => handlePaymentMethodChange('cod')}
+                      >
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center">
+                            <span className="payment-amount mr-4">₹{total}</span>
+                            <div className="flex items-center">
+                              <span className="mr-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e2832" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <path d="M6 12h.01M18 12h.01" />
+                                </svg>
+                              </span>
+                              <span className="font-medium payment-label">Cash on Delivery</span>
+                            </div>
+                          </div>
+                          <div className={`radio-custom ${paymentMethod === 'cod' ? 'selected' : ''}`}>
+                            {paymentMethod === 'cod' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                            )}
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="flex-1 p-3 sm:p-6 payment-content-area">
-                        {selectedPaymentMethod === 'recommended' && (
-                          <div>
-                            <p className="text-gray-700 mb-4">We recommend paying with UPI for fastest processing.</p>
-                            <div className="mb-4">
-                              {/* Same as UPI option below */}
-                              <div className="text-lg sm:text-xl font-medium text-[#1e2832] mb-4">Pay using UPI</div>
-                              
-                              <div className="space-y-4">
-                                <label className="flex items-center">
-                                  <input
-                                    type="radio"
-                                    name="upiOption"
-                                    checked={upiOption === 'scan'}
-                                    onChange={() => handleUpiOptionChange('scan')}
-                                    className="mr-3 accent-[#c5a87f]"
-                                  />
-                                  <div className="flex items-center">
-                                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
-                                      <span className="text-lg">🔍</span>
-                                    </div>
-                                    <span className="font-medium text-gray-800 upi-option-label">Scan & Pay</span>
-                                  </div>
-                                </label>
-                                
-                                <label className="flex items-center">
-                                  <input
-                                    type="radio"
-                                    name="upiOption"
-                                    checked={upiOption === 'id'}
-                                    onChange={() => handleUpiOptionChange('id')}
-                                    className="mr-3 accent-[#c5a87f]"
-                                  />
-                                  <div className="flex items-center">
-                                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
-                                      <span className="text-lg">📱</span>
-                                    </div>
-                                    <span className="font-medium upi-option-label">Enter UPI ID</span>
-                                  </div>
-                                </label>
-                                
-                                {upiOption === 'id' && (
-                                  <div className="ml-6 sm:ml-8 mt-4">
-                                    <input
-                                      type="text"
-                                      value={upiId}
-                                      onChange={(e) => setUpiId(e.target.value)}
-                                      placeholder="yourname@upi"
-                                      className="payment-input"
-                                    />
-                                  </div>
-                                )}
-                                
-                                {upiOption === 'scan' && (
-                                  <div className="ml-6 sm:ml-8 mt-4 text-center">
-                                    <div className="inline-block border border-gray-200 p-4 rounded upi-qr-container">
-                                      <div className="w-36 h-36 sm:w-48 sm:h-48 bg-gray-100 flex items-center justify-center upi-qr-code">
-                                        <div className="text-center">
-                                          <p className="text-sm text-gray-500 mb-2">QR Code will appear here</p>
-                                          <p className="text-xs text-gray-400">Scan with any UPI app</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                      {/* Online Payment Option */}
+                      <div 
+                        className={`payment-option border p-1 cursor-pointer ${
+                          paymentMethod === 'online' 
+                            ? 'selected border-[#1e2832] bg-[#f9f9f9]' 
+                            : 'border-gray-200'
+                        }`}
+                        onClick={() => handlePaymentMethodChange('online')}
+                      >
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center">
+                            <span className="payment-amount mr-4">₹{total}</span>
+                            <div className="flex items-center">
+                              <span className="mr-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e2832" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                                  <line x1="1" y1="10" x2="23" y2="10" />
+                                </svg>
+                              </span>
+                              <span className="font-medium payment-label">Pay Online</span>
                             </div>
                           </div>
-                        )}
-                        
-                        {selectedPaymentMethod === 'cod' && (
-                          <div>
-                            <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
-                              <div className="flex">
-                                <span className="text-amber-600 mr-2">⚠️</span>
-                                <div>
-                                  <p className="text-amber-700 font-medium">Pay on delivery is not available</p>
-                                  <p className="text-amber-600 text-sm">Order amount should be between 1 and 1500</p>
-                                </div>
-                              </div>
-                            </div>
-                            <p className="text-gray-700">Cash on Delivery is unavailable for orders above ₹1500 for security reasons.</p>
+                          <div className={`radio-custom ${paymentMethod === 'online' ? 'selected' : ''}`}>
+                            {paymentMethod === 'online' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                            )}
                           </div>
-                        )}
-                        
-                        {selectedPaymentMethod === 'upi' && (
-                          <div>
-                            <div className="text-lg sm:text-xl font-medium text-[#1e2832] mb-4">Pay using UPI</div>
-                            
-                            <div className="space-y-4">
-                              <label className="flex items-center">
-                                <input
-                                  type="radio"
-                                  name="upiOption"
-                                  checked={upiOption === 'scan'}
-                                  onChange={() => handleUpiOptionChange('scan')}
-                                  className="mr-3 accent-[#c5a87f]"
-                                />
-                                <div className="flex items-center">
-                                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
-                                    <span className="text-lg">🔍</span>
-                                  </div>
-                                  <span className="font-medium text-gray-800 upi-option-label">Scan & Pay</span>
-                                </div>
-                              </label>
-                              
-                              <label className="flex items-center">
-                                <input
-                                  type="radio"
-                                  name="upiOption"
-                                  checked={upiOption === 'id'}
-                                  onChange={() => handleUpiOptionChange('id')}
-                                  className="mr-3 accent-[#c5a87f]"
-                                />
-                                <div className="flex items-center">
-                                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 flex items-center justify-center rounded mr-3">
-                                    <span className="text-lg">📱</span>
-                                  </div>
-                                  <span className="font-medium upi-option-label">Enter UPI ID</span>
-                                </div>
-                              </label>
-                              
-                              {upiOption === 'id' && (
-                                <div className="ml-6 sm:ml-8 mt-4">
-                                  <input
-                                    type="text"
-                                    value={upiId}
-                                    onChange={(e) => setUpiId(e.target.value)}
-                                    placeholder="yourname@upi"
-                                    className="payment-input"
-                                  />
-                                </div>
-                              )}
-                              
-                              {upiOption === 'scan' && (
-                                <div className="ml-6 sm:ml-8 mt-4 text-center">
-                                  <div className="inline-block border border-gray-200 p-4 rounded upi-qr-container">
-                                    <div className="w-36 h-36 sm:w-48 sm:h-48 bg-gray-100 flex items-center justify-center upi-qr-code">
-                                      <div className="text-center">
-                                        <p className="text-sm text-gray-500 mb-2">QR Code will appear here</p>
-                                        <p className="text-xs text-gray-400">Scan with any UPI app</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {selectedPaymentMethod === 'card' && (
-                          <div>
-                            <div className="text-lg sm:text-xl font-medium text-[#1e2832] mb-4">CREDIT/ DEBIT CARD</div>
-                            
-                            <div className="mb-6">
-                              <p className="text-sm text-[#c5a87f] mb-6">Please ensure your card can be used for online transactions. <span className="underline">Know More</span></p>
-                              
-                              <div className="space-y-4">
-                                <div>
-                                  <input
-                                    type="text"
-                                    name="number"
-                                    value={cardDetails.number}
-                                    onChange={handleCardInputChange}
-                                    placeholder="Card Number"
-                                    className="payment-input"
-                                  />
-                                </div>
-                                
-                                <div>
-                                  <input
-                                    type="text"
-                                    name="name"
-                                    value={cardDetails.name}
-                                    onChange={handleCardInputChange}
-                                    placeholder="Name on card"
-                                    className="payment-input"
-                                  />
-                                </div>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 card-inputs-grid">
-                                  <input
-                                    type="text"
-                                    name="expiry"
-                                    value={cardDetails.expiry}
-                                    onChange={handleCardInputChange}
-                                    placeholder="Valid Thru (MM/YY)"
-                                    className="payment-input"
-                                  />
-                                  <input
-                                    type="text"
-                                    name="cvv"
-                                    value={cardDetails.cvv}
-                                    onChange={handleCardInputChange}
-                                    placeholder="CVV"
-                                    className="payment-input"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Payment Action Button - Only show for valid payment methods */}
-                        {(selectedPaymentMethod === 'upi' || selectedPaymentMethod === 'card' || selectedPaymentMethod === 'recommended') && (
-                          <div className="mt-8">
-                            <button
-                              onClick={handlePayNow}
-                              className="w-full py-3 bg-[#1e2832] text-white font-medium text-center rounded hover:bg-[#314049]"
-                            >
-                              PAY NOW
-                            </button>
-                          </div>
-                        )}
-                        
-                        {/* Order button for COD */}
-                        {selectedPaymentMethod === 'cod' && (
-                          <div className="mt-8">
-                            <button
-                              onClick={handlePayNow}
-                              className="w-full py-3 bg-[#1e2832] text-white font-medium text-center rounded hover:bg-[#314049]"
-                            >
-                              PLACE ORDER
-                            </button>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -483,65 +565,30 @@ const PaymentPage = () => {
               {/* Right Column - Order Summary */}
               <div className="lg:col-span-1 order-1 lg:order-2 mb-6 lg:mb-0">
                 <div className="bg-white border border-gray-200 rounded-md shadow-sm sticky top-20">
-                  <div className="p-3 sm:p-4 border-b border-gray-200">
-                    <h2 className="text-lg sm:text-xl font-display text-[#1e2832]">Order Summary</h2>
+                  <div className="p-5 border-b border-gray-200 bg-gray-50">
+                    <h2 className="text-xl font-display font-semibold text-[#1e2832]">Order Summary</h2>
                   </div>
                   
-                  <div className="p-3 sm:p-4">
-                    {/* Order Items */}
-                    <div className="max-h-48 sm:max-h-60 overflow-y-auto mb-4">
-                      {cartItems.map((item) => (
-                        <div key={item.id} className="flex py-3 border-b border-gray-100">
-                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-50 relative flex-shrink-0">
-                            <Image
-                              src={item.image}
-                              alt={item.name}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                          <div className="ml-3 sm:ml-4 flex-1">
-                            <p className="text-xs sm:text-sm text-gray-900 font-medium">{item.name}</p>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {item.size && <span>Size: {item.size.toUpperCase()} {item.color && '|'} </span>}
-                              {item.color && <span>Color: {item.color}</span>}
-                            </div>
-                            <div className="flex justify-between mt-1 sm:mt-2">
-                              <span className="text-xs sm:text-sm text-gray-700 font-medium">Qty: {item.quantity}</span>
-                              <span className="text-xs sm:text-sm font-medium order-item-details">₹{item.price.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
+                  <div className="p-5">
                     {/* Price Details */}
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-3 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Price ({cartItems.length} items)</span>
-                        <span className="order-summary-amount">₹{subtotal.toLocaleString()}</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Discount</span>
-                        <span className="text-green-600">- ₹{discount.toLocaleString()}</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Delivery Charges</span>
-                        <span className="text-green-600">FREE</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Taxes</span>
-                        <span className="order-summary-amount">₹{taxes.toLocaleString()}</span>
+                        <span className="summary-label">Total Product Price</span>
+                        <span className="summary-amount">₹{total.toLocaleString()}</span>
                       </div>
                       
                       <div className="flex justify-between pt-4 border-t border-gray-200 font-medium text-base">
-                        <span className="font-medium total-heading">Total Amount</span>
-                        <span className="font-medium order-summary-amount">₹{total.toLocaleString()}</span>
+                        <span className="font-semibold text-[#1e2832]">Order Total</span>
+                        <span className="font-semibold text-[#1e2832]">₹{total.toLocaleString()}</span>
                       </div>
                     </div>
+                    
+                    <button 
+                      onClick={handlePlaceOrder}
+                      className="place-order-btn w-full mt-6 bg-[#1e2832] text-white py-3.5 rounded-md font-medium hover:bg-[#2a3642] transition-all shadow-sm"
+                    >
+                      Place Order
+                    </button>
                   </div>
                 </div>
               </div>
@@ -554,4 +601,4 @@ const PaymentPage = () => {
   );
 };
 
-export default PaymentPage; 
+export default PaymentPage;

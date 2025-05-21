@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import StarRating from '@/components/ui/StarRating';
-import Image from 'next/image';
+import { useQuery } from '@tanstack/react-query';
+import { fetchBestSellingProducts, fetchProductReviews, calculateAverageRating } from '@/utils/api';
+import { logger } from '@/utils/config';
+import { bestsellers as fallbackBestsellers } from '@/constants/data';
 
-const BestsellersSection = ({ data }) => {
+const BestsellersSection = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState('');
@@ -14,7 +17,58 @@ const BestsellersSection = ({ data }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imageContainerRef = useRef(null);
-  const { title, description, items } = data;
+  
+  // Hardcoded title and description
+  const title = 'BestSellings';
+  const description = 'Our most coveted pieces, loved for their craftsmanship and timeless appeal.';
+  
+  // Fetch best selling products using React Query
+  const { 
+    data: items = [], 
+    isLoading: loading, 
+    error 
+  } = useQuery({
+    queryKey: ['bestSellers'],
+    queryFn: async () => {
+      try {
+        const products = await fetchBestSellingProducts();
+        if (products && products.length > 0) {
+          logger.info('Successfully loaded best selling products from API');
+          return products;
+        }
+        // Use fallback data if API returns empty
+        logger.info('No best selling products found in API, using fallback data');
+        return fallbackBestsellers.items;
+      } catch (err) {
+        logger.error('Failed to fetch best selling products:', err);
+        throw err;
+      }
+    },
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+  });
+
+  // Fetch ratings for all products using React Query
+  const { data: productRatings = {} } = useQuery({
+    queryKey: ['productRatings', items],
+    queryFn: async () => {
+      const ratings = {};
+      for (const product of items) {
+        if (product.id) {
+          try {
+            const reviews = await fetchProductReviews(product.id);
+            ratings[product.id] = calculateAverageRating(reviews);
+          } catch (error) {
+            logger.error(`Error fetching ratings for product ${product.id}:`, error);
+            ratings[product.id] = 0;
+          }
+        }
+      }
+      return ratings;
+    },
+    enabled: items.length > 0,
+    staleTime: 5 * 60 * 1000, // Consider ratings fresh for 5 minutes
+  });
 
   // Rotate to previous item
   const prevItem = () => {
@@ -136,6 +190,95 @@ const BestsellersSection = ({ data }) => {
     };
   }, [isDragging, handleMouseMove]);
 
+  // Helper function to get the primary image URL
+  const getPrimaryImageUrl = (product) => {
+    // Check if product has images array
+    if (product.images && product.images.length > 0) {
+      // First try to find the primary image
+      const primaryImage = product.images.find(img => img.isPrimary);
+      if (primaryImage) {
+        return primaryImage.imageUrl;
+      }
+      // If no primary image, return the first image
+      return product.images[0].imageUrl;
+    }
+    
+    // If images from API are in a different format (direct string array)
+    if (Array.isArray(product.images) && typeof product.images[0] === 'string') {
+      return product.images[0];
+    }
+    
+    // Fallback to placeholder
+    return 'https://via.placeholder.com/300x300';
+  };
+
+  if (loading) {
+    return (
+      <section id="bestsellers" className="relative py-24 bg-black">
+        <div className="container mx-auto max-w-6xl px-4 relative z-10">
+          <div className="flex flex-col items-center mb-16 relative">
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-[#d4b78f] blur-xl opacity-60"></div>
+            <h2 className="font-display text-4xl md:text-5xl text-white mb-4 text-center">
+              {title}
+            </h2>
+            <div className="w-20 h-1 bg-[#d4b78f] mb-4"></div>
+            <p className="text-gray-300 max-w-2xl text-center text-base md:text-lg">
+              {description}
+            </p>
+          </div>
+          
+          <div className="flex justify-center items-center h-[500px]">
+            <div className="animate-pulse flex flex-col items-center space-y-8">
+              <div className="bg-white/10 rounded-full w-40 h-40"></div>
+              <div className="bg-black/60 backdrop-blur-sm p-4 rounded-xl w-64">
+                <div className="bg-white/20 h-6 w-40 mb-4 mx-auto rounded"></div>
+                <div className="bg-white/20 h-4 w-20 mb-4 mx-auto rounded"></div>
+                <div className="bg-white/20 h-4 w-24 mb-4 mx-auto rounded"></div>
+                <div className="bg-white/20 h-8 w-full rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error && items.length === 0) {
+    return (
+      <section id="bestsellers" className="relative py-24 bg-black">
+        <div className="container mx-auto max-w-6xl px-4 relative z-10">
+          <div className="flex flex-col items-center mb-16 relative">
+            <h2 className="font-display text-4xl md:text-5xl text-white mb-4 text-center">
+              {title}
+            </h2>
+            <div className="w-20 h-1 bg-[#d4b78f] mb-4"></div>
+          </div>
+          
+          <div className="flex justify-center items-center h-[300px]">
+            <div className="text-center text-white">
+              <p className="mb-4">Unable to load best selling products. {error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-[#d4b78f] text-black rounded-md"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  const activeProduct = items[activeIndex];
+  const productId = activeProduct.id;
+  const rating = productRatings[productId] || 0;
+  const imageUrl = getPrimaryImageUrl(activeProduct);
+
   return (
     <section className="relative py-20 overflow-hidden bg-gradient-to-r from-[#1a1a1a] to-[#2d2d2d] text-white">
       {/* Pattern overlay */}
@@ -190,13 +333,13 @@ const BestsellersSection = ({ data }) => {
                     className={`w-40 h-40 rounded-full bg-cover bg-center cursor-pointer ring-4 ${
                       isActive ? 'ring-[#d4b78f]' : 'ring-white/30'
                     } relative group`} 
-                    style={{ backgroundImage: `url(${item.image})` }}
+                    style={{ backgroundImage: `url(${getPrimaryImageUrl(item)})` }}
                     onClick={() => setActiveIndex(index)}
                   >
                     {/* Quick view overlay */}
                     <div 
                       className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                      onClick={(e) => openImageModal(item.image, e)}
+                      onClick={(e) => openImageModal(getPrimaryImageUrl(item), e)}
                     >
                       <div className="bg-white/90 text-black text-xs px-2 py-1 rounded-full font-medium">
                         Quick View
@@ -213,12 +356,12 @@ const BestsellersSection = ({ data }) => {
             <div className="flex justify-center mb-8">
               <div 
                 className="w-56 h-56 rounded-full bg-cover bg-center ring-4 ring-[#d4b78f] relative group" 
-                style={{ backgroundImage: `url(${items[activeIndex].image})` }}
+                style={{ backgroundImage: `url(${getPrimaryImageUrl(items[activeIndex])})` }}
               >
                 {/* Quick view overlay for mobile */}
                 <div 
                   className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 flex items-center justify-center transition-opacity"
-                  onClick={(e) => openImageModal(items[activeIndex].image, e)}
+                  onClick={(e) => openImageModal(getPrimaryImageUrl(items[activeIndex]), e)}
                 >
                   <div className="bg-white/90 text-black text-xs px-2 py-1 rounded-full font-medium">
                     Quick View
@@ -243,19 +386,19 @@ const BestsellersSection = ({ data }) => {
           <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center w-64">
             <div className="bg-black/60 backdrop-blur-sm p-4 rounded-xl">
               <h3 className="font-display text-xl text-white mb-1">
-                {items[activeIndex].name}
+                {activeProduct.name}
               </h3>
               <div className="flex justify-center my-1">
-                <StarRating rating={items[activeIndex].rating} />
+                <StarRating rating={rating} />
               </div>
               <div className="text-[#d4b78f] font-medium mb-1">
-                {items[activeIndex].currency}{items[activeIndex].price.toLocaleString()}
+                {activeProduct.currency}{activeProduct.price.toLocaleString()}
               </div>
               <div className="text-[#d4b78f]/80 text-sm mb-4">
-                {items[activeIndex].stock}
+                {activeProduct.stock}
               </div>
               <Link 
-                href={`/products/${items[activeIndex].id}`} 
+                href={`/products/${activeProduct.id}`} 
                 className="block w-full py-2 bg-[#d4b78f] text-black text-sm font-medium hover:bg-white transition-colors rounded-md"
               >
                 Shop Now

@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { newArrivalsProducts, bestsellers } from '@/constants/data';
 import Link from 'next/link';
 import { addToCart } from '@/utils/cart';
+import { fetchProductById, fetchProducts, createUser, verifyPhone, resendOTP, createReview, fetchProductReviews, calculateAverageRating } from '@/utils/api';
 import Image from 'next/image';
+import PhoneVerification from '@/components/ui/PhoneVerification';
+import ProductCard from '@/components/ui/ProductCard';
 
 const ProductDetail = () => {
   const params = useParams();
@@ -22,138 +24,105 @@ const ProductDetail = () => {
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [addedToCart, setAddedToCart] = useState(false);
-  const [showPhoneDialog, setShowPhoneDialog] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [phoneError, setPhoneError] = useState('');
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [authError, setAuthError] = useState('');
   const [sizeError, setSizeError] = useState(false);
   const [colorError, setColorError] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
-  
-  // Buy Now state
-  const [buyNowError, setBuyNowError] = useState(''); // For general buy now errors like size/color missing
-  
-  // Mock thumbnail images (in a real app these would come from the product data)
   const [thumbnails, setThumbnails] = useState([]);
-  
-  // Mock reviews data (in a real app, this would come from an API)
-  const reviews = [
-    {
-      id: 1,
-      title: "Excellent Quality and Craftsmanship",
-      rating: 5,
-      content: "I purchased this silk dress for my wedding and was extremely impressed with the quality and attention to detail. The embroidery is exquisite and the fit was perfect. Received many compliments! The color is exactly as shown in the pictures and the material feels very premium. Delivery was also prompt and the packaging was great. Highly recommend this to anyone looking for a special occasion outfit.",
-      author: "Rahul Sharma",
-      date: "2025-02-15",
-    },
-    {
-      id: 2,
-      title: "Beautiful but Sizing Runs Small",
-      rating: 4,
-      content: "The dress is absolutely beautiful and well-made. The only issue was that it ran a bit small for me. I would recommend ordering one size larger than your usual size. Otherwise, excellent product! The craftsmanship is exceptional, especially the handwork on the embroidery. I'm very pleased with my purchase despite the sizing issue. The customer service was also very helpful when I contacted them for advice.",
-      author: "Arjun Patel",
-      date: "2025-01-20",
-    },
-    {
-      id: 3,
-      title: "Worth Every Penny",
-      rating: 5,
-      content: "This is the most beautiful piece I've purchased online. The craftsmanship is exceptional, and the material feels so luxurious. It arrived on time and looked exactly as pictured. I wore it to a wedding and received countless compliments. The embroidery detail is stunning and the colors are vibrant. The fit was perfect for me and it was comfortable to wear all day. Will definitely be ordering more items from this store!",
-      author: "Priya Desai",
-      date: "2024-12-15",
-    },
-    {
-      id: 4,
-      title: "Stunning Design",
-      rating: 4,
-      content: "The design is even more beautiful in person. Colors are vibrant and the embroidery is detailed. I took away one star because delivery took longer than expected. But the product itself exceeded my expectations. The quality of the stitching is excellent and the fabric is very soft against the skin. I appreciate that they included care instructions which were very helpful. Would recommend with the note about potential delivery delays.",
-      author: "Vikram Singh",
-      date: "2024-12-05",
-    },
-    {
-      id: 5,
-      title: "Perfect for Special Occasions",
-      rating: 5,
-      content: "I bought this for my daughter's engagement ceremony and she looked absolutely stunning. The quality, design, and finish are all top-notch. The color was slightly different from what was shown online but still beautiful. The dress arrived well-packaged and in pristine condition. We received so many inquiries about where we got it from! Will definitely order from this brand again for future events.",
-      author: "Meena Agarwal",
-      date: "2024-11-20",
-    },
-    {
-      id: 6,
-      title: "Elegant and Comfortable",
-      rating: 5,
-      content: "Not only is this dress beautiful, but it's also surprisingly comfortable for an outfit this formal. The material breathes well and the cut allows for movement without restricting. I wore it for a 6-hour event and felt comfortable throughout. The attention to detail in the embroidery is amazing - you can tell it's handcrafted by skilled artisans. Sizing was perfect based on the measurements provided. Very satisfied with my purchase!",
-      author: "Aisha Khan",
-      date: "2024-10-18",
-    }
-  ];
-
+  const [reviews, setReviews] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const imageContainerRef = useRef(null);
-  
-  // For touch swipe functionality
   const [touchStartX, setTouchStartX] = useState(0);
   const [swiping, setSwiping] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(null);
-  
-  // Touch handlers with direct DOM events for better mobile support
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    verificationCode: ''
+  });
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [cartAnimation, setCartAnimation] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [hasUserReviewed, setHasUserReviewed] = useState(false);
+  const [reviewFormData, setReviewFormData] = useState({
+    rating: 0,
+    content: ''
+  });
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [hoveredRating, setHoveredRating] = useState(0);
+
+  const checkAuth = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp * 1000 < Date.now()) {
+        localStorage.removeItem('token');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      localStorage.removeItem('token');
+      return false;
+    }
+  };
+
   const handleTouchStart = (e) => {
     setTouchStartX(e.touches[0].clientX);
     setSwiping(true);
     setSwipeDirection(null);
   };
-  
+
   const handleTouchMove = (e) => {
     if (!swiping) return;
-    
+
     const touchMoveX = e.touches[0].clientX;
     const diffX = touchStartX - touchMoveX;
-    
-    // Determine swipe direction for visual feedback
+
     if (Math.abs(diffX) > 20) {
       setSwipeDirection(diffX > 0 ? 'left' : 'right');
-      
-      // Prevent default to stop page scrolling during horizontal swipe
       if (Math.abs(diffX) > 10 && thumbnails.length > 1) {
         e.preventDefault();
         e.stopPropagation();
       }
     }
   };
-  
+
   const handleTouchEnd = (e) => {
     const touchEndX = e.changedTouches[0].clientX;
     const diffX = touchStartX - touchEndX;
-    
-    // Minimum distance to be considered a swipe
+
     const minDistance = 50;
-    
+
     if (Math.abs(diffX) > minDistance) {
       if (diffX > 0) {
-        // Swiped left, go to next image
         nextImage();
       } else {
-        // Swiped right, go to previous image
         prevImage();
       }
     }
-    
-    // Reset swipe state
+
     setSwiping(false);
     setSwipeDirection(null);
   };
 
-  // Navigation functions
   const nextImage = () => {
     if (thumbnails.length <= 1) return;
-    
+
     const newIndex = (currentImageIndex + 1) % thumbnails.length;
     setCurrentImageIndex(newIndex);
     setMainImage(thumbnails[newIndex]);
   };
-  
+
   const prevImage = () => {
     if (thumbnails.length <= 1) return;
-    
+
     const newIndex = (currentImageIndex - 1 + thumbnails.length) % thumbnails.length;
     setCurrentImageIndex(newIndex);
     setMainImage(thumbnails[newIndex]);
@@ -175,35 +144,47 @@ const ProductDetail = () => {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
-  
+
   const toggleShowAllReviews = () => {
     setShowAllReviews(!showAllReviews);
   };
-  
-  // Format date to "X days ago" format
+
   const formatDate = (dateString) => {
     const reviewDate = new Date(dateString);
     const currentDate = new Date();
     const diffTime = Math.abs(currentDate - reviewDate);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 1) return "1 day ago";
     if (diffDays < 30) return `${diffDays} days ago`;
     if (diffDays < 365) {
       const months = Math.floor(diffDays / 30);
       return `${months} ${months === 1 ? 'month' : 'months'} ago`;
     }
-    
+
     const years = Math.floor(diffDays / 365);
     return `${years} ${years === 1 ? 'year' : 'years'} ago`;
   };
-  
-  // Star rating component
+
   const StarRating = ({ rating }) => {
+    // If rating is undefined or 0, show a message about no ratings yet
+    if (!rating) {
+      return (
+        <div className="flex items-center">
+          {[...Array(5)].map((_, i) => (
+            <svg key={`empty-${i}`} className="w-4 h-4 text-gray-300 fill-current" viewBox="0 0 24 24">
+              <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+            </svg>
+          ))}
+          <span className="ml-2 text-sm text-gray-600">No ratings yet</span>
+        </div>
+      );
+    }
+
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 !== 0;
     const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-    
+
     return (
       <div className="flex items-center">
         {[...Array(fullStars)].map((_, i) => (
@@ -211,149 +192,90 @@ const ProductDetail = () => {
             <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
           </svg>
         ))}
-        
+
         {hasHalfStar && (
           <svg className="w-4 h-4 text-[#c5a87f] fill-current" viewBox="0 0 24 24">
             <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fillOpacity="0.5" />
           </svg>
         )}
-        
+
         {[...Array(emptyStars)].map((_, i) => (
           <svg key={`empty-${i}`} className="w-4 h-4 text-gray-300 fill-current" viewBox="0 0 24 24">
             <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
           </svg>
         ))}
-        
+
         <span className="ml-1 text-sm text-gray-600 dark:text-gray-600">({rating.toFixed(1)})</span>
       </div>
     );
   };
 
-  const handleAddToCart = () => {
-    // Reset previous errors
+  const handleAddToCart = async () => {
     setSizeError(false);
     setColorError(false);
-    
-    // Validate size and color selection
+    setAuthError('');
+
     let hasError = false;
-    
+
     if (!selectedSize) {
       setSizeError(true);
       hasError = true;
     }
-    
+
     if (!selectedColor) {
       setColorError(true);
       hasError = true;
     }
-    
-    // If any validation errors, don't proceed
+
     if (hasError) {
       return;
     }
-    
-    // If all validations pass, show phone dialog
-    if (product) {
-      setShowPhoneDialog(true);
-    }
-  };
-  
-  const handleBuyNow = () => {
-    // Reset previous errors
-    setSizeError(false);
-    setColorError(false);
-    setBuyNowError('');
 
-    // Validate size and color selection
-    let hasError = false;
-    let errorMessages = [];
-
-    if (!selectedSize) {
-      setSizeError(true);
-      errorMessages.push('Please select a size');
-      hasError = true;
-    }
-    
-    if (!selectedColor) {
-      setColorError(true);
-      errorMessages.push('Please select a color');
-      hasError = true;
-    }
-    
-    // If any validation errors, show message and don't proceed
-    if (hasError) {
-      setBuyNowError(errorMessages.join(' and ')); // Combine error messages
+    if (!checkAuth()) {
+      setShowAuthDialog(true);
       return;
     }
 
-    // If validations pass, add to cart and redirect
-    if (product) {
+    try {
+      // Start loading state immediately
+      setIsAddingToCart(true);
+      setCartAnimation(true);
+      
       const productToAdd = {
         id: product.id,
-        name: product.name,
-        price: product.price,
-        image: mainImage,
-        quantity: quantity, // Use the current quantity
-        size: selectedSize,
-        color: selectedColor,
-        // No phone number needed for buy now immediate redirect
+        quantity: quantity
       };
+
+      // Set a timeout of 3 seconds for the cart addition
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Cart addition timed out')), 3000);
+      });
       
-      // Store item details in sessionStorage for checkout page to pick up
-      try {
-        sessionStorage.setItem('buyNowItem', JSON.stringify(productToAdd));
-      } catch (error) {
-        console.error('Error saving to sessionStorage:', error);
-        setBuyNowError('Could not initiate Buy Now. Please try again.');
-        return; // Prevent redirection if storage fails
-      }
+      // Race between the actual cart addition and the timeout
+      await Promise.race([
+        addToCart(productToAdd),
+        timeoutPromise
+      ]);
 
-      // Redirect to checkout
-      router.push('/checkout');
+      // Batch state updates and use shorter animation duration
+      setTimeout(() => {
+        setIsAddingToCart(false);
+        setAddedToCart(true);
+        setCartAnimation(false);
+        
+        // Show success state for 1 second instead of 2
+        setTimeout(() => setAddedToCart(false), 1000);
+      }, 500); // Reduced from 1500ms to 500ms
+      
+      window.dispatchEvent(new Event('cart-updated'));
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      setAuthError(error.message === 'Cart addition timed out' 
+        ? 'Taking too long to add item. Please try again.' 
+        : 'Failed to add item to cart. Please try again.');
+      setIsAddingToCart(false);
+      setCartAnimation(false);
     }
-  };
-
-  const handlePhoneSubmit = () => {
-    // Basic phone validation
-    if (!phoneNumber.trim()) {
-      setPhoneError('Phone number is required');
-      return;
-    }
-    
-    // You can add more complex validation here if needed
-    if (phoneNumber.trim().length < 10) {
-      setPhoneError('Please enter a valid phone number');
-      return;
-    }
-    
-    // Clear any errors
-    setPhoneError('');
-    
-    // Add the product with selected options to cart
-    const productToAdd = {
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: mainImage,
-      quantity: quantity,
-      size: selectedSize,
-      color: selectedColor,
-      phoneNumber: phoneNumber // Save the phone number with the cart item
-    };
-    
-    addToCart(productToAdd);
-    
-    // Close dialog
-    setShowPhoneDialog(false);
-    
-    // Show success message briefly
-    setAddedToCart(true);
-    setTimeout(() => {
-      setAddedToCart(false);
-    }, 3000);
-    
-    // Dispatch a storage event to update cart count in header
-    window.dispatchEvent(new Event('storage'));
   };
 
   const handleSizeChange = (size) => {
@@ -372,63 +294,148 @@ const ProductDetail = () => {
     setShowSizeGuide(!showSizeGuide);
   };
 
-  useEffect(() => {
-    // Combine products from different data sources
-    const allProducts = [...newArrivalsProducts, ...bestsellers.items];
-    
-    // Find the product by ID
-    const productId = parseInt(params.id, 10);
-    const foundProduct = allProducts.find(p => p.id === productId);
-    
-    if (foundProduct) {
-      setProduct(foundProduct);
-      setMainImage(foundProduct.image);
-      
-      // Use product images array if available, otherwise fallback to single image
-      if (foundProduct.images && foundProduct.images.length > 0) {
-        setThumbnails(foundProduct.images);
-      } else {
-        // Fallback to single image repeated
-        setThumbnails([
-          foundProduct.image,
-          foundProduct.image,
-          foundProduct.image,
-          foundProduct.image
-        ]);
-      }
+  const handleAuthSuccess = (response) => {
+    localStorage.setItem('token', response.token);
+    setShowAuthDialog(false);
+    handleAddToCart(); // Reuse the main function
+  };
 
-      // Find similar products
-      const similar = allProducts
-        .filter(p => p.id !== foundProduct.id) // Exclude current product
-        .filter(p => 
-          p.category === foundProduct.category || // Same category
-          (p.tags && foundProduct.tags && p.tags.some(tag => foundProduct.tags.includes(tag))) // Shared tags
-        )
-        .slice(0, 4); // Limit to 4 similar products
-      
-      setSimilarProducts(similar);
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!currentUser) {
+      setShowAuthDialog(true);
+      return;
     }
     
-    setLoading(false);
-  }, [params.id]);
+    if (reviewFormData.rating === 0) {
+      setReviewError('Please select a rating');
+      return;
+    }
+    
+    if (!reviewFormData.content.trim()) {
+      setReviewError('Please write your review');
+      return;
+    }
+    
+    setReviewSubmitting(true);
+    setReviewError('');
+    
+    try {
+      // Make sure we have a valid productId
+      const productId = params.id;
+      if (!productId) {
+        throw new Error('Product ID is missing');
+      }
+      
+      console.log('Submitting review for product:', productId);
+      
+      const reviewData = {
+        rating: reviewFormData.rating,
+        comment: reviewFormData.content,
+        productId: productId // Ensure this is a string
+      };
+      
+      console.log('Review data being sent:', reviewData);
+      
+      const response = await createReview(reviewData);
+      
+      // Add new review to the reviews list
+      const newReview = {
+        id: response.id,
+        rating: response.rating,
+        comment: response.comment,
+        author: currentUser.name,
+        createdAt: response.createdAt
+      };
+      
+      const updatedReviews = [newReview, ...reviews];
+      setReviews(updatedReviews);
+      
+      // Recalculate average rating
+      const averageRating = calculateAverageRating(updatedReviews);
+      setProduct(prevProduct => ({
+        ...prevProduct,
+        rating: averageRating
+      }));
+      
+      // Mark that user has reviewed
+      setHasUserReviewed(true);
+      
+      // Reset form
+      setReviewFormData({
+        rating: 0,
+        content: ''
+      });
+      
+      setReviewSuccess(true);
+      setTimeout(() => {
+        setReviewSuccess(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      setReviewError(error.message || 'Failed to submit review. Please try again.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
-  // Add this useEffect to handle touch events without passive listeners
+  useEffect(() => {
+    const fetchProductData = async () => {
+      try {
+        const productId = params.id;
+        const data = await fetchProductById(productId);
+        setProduct(data);
+
+        if (data.images && data.images.length > 0) {
+          const imageUrls = data.images.map(img => img.imageUrl);
+          setThumbnails(imageUrls);
+          const primaryImage = data.images.find(img => img.isPrimary);
+          setMainImage(primaryImage ? primaryImage.imageUrl : imageUrls[0]);
+        }
+
+        // We've moved the review fetching to a separate effect
+        // so we don't need to fetch reviews here anymore
+
+        if (data.categoryId) {
+          try {
+            const similar = await fetchProducts({
+              category: data.categoryId,
+              limit: 4,
+              exclude: productId
+            });
+            setSimilarProducts(similar);
+          } catch (error) {
+            console.error('Error fetching similar products:', error);
+          }
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        setLoading(false);
+      }
+    };
+
+    if (params.id) {
+      fetchProductData();
+    }
+  }, [params.id, currentUser]);
+
   useEffect(() => {
     const element = imageContainerRef.current;
     if (!element) return;
-    
-    // We need to add non-passive event listeners to be able to prevent default on touchmove
+
     const touchStartHandler = (e) => handleTouchStart(e);
     const touchMoveHandler = (e) => {
       if (swiping && thumbnails.length > 1) {
         const touchMoveX = e.touches[0].clientX;
         const diffX = touchStartX - touchMoveX;
-        
-        // Determine swipe direction for visual feedback
+
         if (Math.abs(diffX) > 20) {
           setSwipeDirection(diffX > 0 ? 'left' : 'right');
-          
-          // Prevent default to stop page scrolling during horizontal swipe
+
           if (Math.abs(diffX) > 10) {
             e.preventDefault();
             e.stopPropagation();
@@ -437,26 +444,182 @@ const ProductDetail = () => {
       }
     };
     const touchEndHandler = (e) => handleTouchEnd(e);
-    
-    // Add event listeners with passive: false to allow preventDefault
+
     element.addEventListener('touchstart', touchStartHandler, { passive: true });
     element.addEventListener('touchmove', touchMoveHandler, { passive: false });
     element.addEventListener('touchend', touchEndHandler, { passive: true });
-    
+
     return () => {
-      // Cleanup
       element.removeEventListener('touchstart', touchStartHandler);
       element.removeEventListener('touchmove', touchMoveHandler);
       element.removeEventListener('touchend', touchEndHandler);
     };
   }, [imageContainerRef, swiping, touchStartX, thumbnails.length, handleTouchStart, handleTouchEnd]);
 
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const userId = payload.id || payload.userId || payload.sub;
+        setCurrentUser({ id: userId, name: payload.name });
+      } catch (error) {
+        console.error('Error parsing token:', error);
+      }
+    }
+  }, []);
+
+  const handleStarClick = (star) => {
+    setReviewFormData({
+      ...reviewFormData,
+      rating: star
+    });
+  };
+
+  const handleStarHover = (star) => {
+    setHoveredRating(star);
+  };
+
+  const handleStarLeave = () => {
+    setHoveredRating(0);
+  };
+
+  // Add a separate effect to fetch reviews/rating directly
+  useEffect(() => {
+    const fetchRatingData = async () => {
+      try {
+        if (params.id) {
+          const productReviews = await fetchProductReviews(params.id);
+          setReviews(productReviews);
+          
+          if (productReviews.length > 0) {
+            const averageRating = calculateAverageRating(productReviews);
+            setProduct(prevProduct => ({
+              ...prevProduct,
+              rating: averageRating
+            }));
+            
+            // Check if current user has already submitted a review
+            if (currentUser) {
+              const userReview = productReviews.find(review => 
+                review.userId === currentUser.id
+              );
+              if (userReview) {
+                setHasUserReviewed(true);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching product rating:', error);
+      }
+    };
+
+    fetchRatingData();
+    
+    // Set up an interval to refresh rating data periodically (every 30 seconds)
+    const intervalId = setInterval(fetchRatingData, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [params.id, currentUser]);
+
   if (loading) {
     return (
       <main className="min-h-screen bg-white dark:bg-white">
         <Header />
-        <div className="container mx-auto pt-16 md:pt-20 pb-20 px-4 flex justify-center items-center">
-          <p className="text-black dark:text-black">Loading...</p>
+        <div className="container mx-auto pt-16 md:pt-20 pb-20 px-4">
+          {/* Shimmer Loading Effect */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-pulse">
+            {/* Product Images Shimmer */}
+            <div className="space-y-4">
+              {/* Main Image Shimmer */}
+              <div className="h-[500px] md:h-[650px] bg-gray-200 rounded-md"></div>
+              
+              {/* Thumbnails Shimmer */}
+              <div className="grid grid-cols-4 gap-4">
+                {[...Array(4)].map((_, index) => (
+                  <div key={index} className="aspect-square bg-gray-200 rounded-md"></div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Product Info Shimmer */}
+            <div className="flex flex-col justify-start space-y-6">
+              {/* Title Shimmer */}
+              <div className="h-10 bg-gray-200 rounded-md w-3/4"></div>
+              
+              {/* Rating Shimmer */}
+              <div className="h-5 bg-gray-200 rounded-md w-1/4"></div>
+              
+              {/* Price Shimmer */}
+              <div className="h-8 bg-gray-200 rounded-md w-1/2"></div>
+              
+              {/* Description Shimmer */}
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded-md w-full"></div>
+                <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
+                <div className="h-4 bg-gray-200 rounded-md w-4/6"></div>
+              </div>
+              
+              {/* Fabric Info Shimmer */}
+              <div className="h-6 bg-gray-200 rounded-md w-2/5"></div>
+              
+              {/* Size Selection Shimmer */}
+              <div className="space-y-3">
+                <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
+                <div className="flex flex-wrap gap-2">
+                  {[...Array(6)].map((_, index) => (
+                    <div key={index} className="h-10 w-16 bg-gray-200 rounded-md"></div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Color Selection Shimmer */}
+              <div className="space-y-3">
+                <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
+                <div className="flex flex-wrap gap-3">
+                  {[...Array(8)].map((_, index) => (
+                    <div key={index} className="h-10 w-10 bg-gray-200 rounded-full"></div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Quantity Shimmer */}
+              <div className="space-y-3">
+                <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
+                <div className="flex items-center">
+                  <div className="h-10 w-10 bg-gray-200 rounded-l-md"></div>
+                  <div className="h-10 w-12 bg-gray-200"></div>
+                  <div className="h-10 w-10 bg-gray-200 rounded-r-md"></div>
+                </div>
+              </div>
+              
+              {/* Action Buttons Shimmer */}
+              <div className="space-y-4 w-full">
+                <div className="h-12 bg-gray-200 rounded-md w-full"></div>
+                <div className="h-12 bg-gray-200 rounded-md w-full"></div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Tab Section Shimmer */}
+          <div className="mt-16 border-t border-gray-200 pt-6">
+            <div className="flex overflow-x-auto space-x-6 border-b border-gray-200 pb-2">
+              {[...Array(3)].map((_, index) => (
+                <div key={index} className="h-8 bg-gray-200 rounded-md w-24 flex-shrink-0"></div>
+              ))}
+            </div>
+            <div className="py-8">
+              <div className="space-y-4">
+                <div className="h-6 bg-gray-200 rounded-md w-1/3"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded-md w-full"></div>
+                  <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
+                  <div className="h-4 bg-gray-200 rounded-md w-4/6"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <Footer />
       </main>
@@ -485,7 +648,6 @@ const ProductDetail = () => {
   return (
     <main className="min-h-screen bg-white dark:bg-white">
       <style jsx global>{`
-        /* Override browser default blue color for dropdown options */
         option {
           color: #1e2832 !important;
           background-color: white !important;
@@ -503,7 +665,6 @@ const ProductDetail = () => {
           box-shadow: 0 0 0 1px #c5a87f !important;
         }
         
-        /* Firefox specific styles */
         @-moz-document url-prefix() {
           select option:hover,
           select option:focus,
@@ -515,7 +676,6 @@ const ProductDetail = () => {
           }
         }
         
-        /* For Webkit browsers like Chrome/Safari */
         select option:checked {
           background: #c5a87f linear-gradient(0deg, #c5a87f 0%, #c5a87f 100%) !important;
         }
@@ -528,9 +688,7 @@ const ProductDetail = () => {
       <Header />
       <section className="container mx-auto pt-16 md:pt-20 pb-12 px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* Product Images */}
           <div className="space-y-4">
-            {/* Main Image */}
             <div 
               className={`relative h-[500px] md:h-[650px] bg-gray-50 overflow-hidden rounded ${
                 swiping ? 'cursor-grabbing' : 'cursor-grab'
@@ -549,7 +707,6 @@ const ProductDetail = () => {
                 priority
               />
               
-              {/* Discount Badge - Top Left */}
               {product.discount && (
                 <div className="absolute top-4 left-4 z-10">
                   <div className="bg-red-600 text-white px-4 py-1 text-sm font-medium rounded shadow-md">
@@ -558,7 +715,6 @@ const ProductDetail = () => {
                 </div>
               )}
               
-              {/* NEW Badge - Top Right */}
               {product.isNew && (
                 <div className="absolute top-4 right-4 z-10">
                   <div className="bg-[#c5a87f] text-white px-4 py-1 text-sm font-medium rounded">
@@ -567,7 +723,6 @@ const ProductDetail = () => {
                 </div>
               )}
               
-              {/* Navigation Arrows - Only shown on desktop and if more than one image */}
               {thumbnails.length > 1 && (
                 <>
                   <button 
@@ -591,7 +746,6 @@ const ProductDetail = () => {
                 </>
               )}
               
-              {/* Mobile swipe indicator - Only shown on mobile */}
               {thumbnails.length > 1 && (
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center md:hidden">
                   <div className="bg-black bg-opacity-50 rounded-full px-3 py-1 text-white text-xs">
@@ -601,7 +755,6 @@ const ProductDetail = () => {
               )}
             </div>
             
-            {/* Thumbnails */}
             <div className="grid grid-cols-4 gap-4">
               {thumbnails.map((thumb, index) => (
                 <button 
@@ -621,18 +774,14 @@ const ProductDetail = () => {
             </div>
           </div>
           
-          {/* Product Info */}
           <div className="flex flex-col justify-start">
             <h1 className="text-3xl md:text-4xl font-display text-black dark:text-black mb-2">{product.name}</h1>
             
-            {/* Rating */}
-            {product.rating && (
-              <div className="mb-4">
-                <StarRating rating={product.rating} />
-              </div>
-            )}
+            {/* Always show rating component - even if rating is 0 */}
+            <div className="mb-4">
+              <StarRating rating={product.rating} />
+            </div>
             
-            {/* Price Display with Discount */}
             <div className="flex items-center mb-6">
               <p className="text-2xl font-medium text-[#c5a87f]">
                 {product.currency} {product.price.toLocaleString()}
@@ -650,8 +799,7 @@ const ProductDetail = () => {
               )}
             </div>
             
-            {/* Limited Time Offer - only shown for discounted products */}
-            {product.discount && (
+            {product.discount && product.saleEndsIn && (
               <div className="mb-6 p-3 bg-gray-50 border border-gray-200 rounded-md">
                 <div className="flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -671,26 +819,30 @@ const ProductDetail = () => {
               {product.description || 'Elegant silk dress with traditional embroidery, perfect for formal occasions.'}
             </p>
 
-            {/* Tags - scrollable on small screens */}
-            {product.tags && product.tags.length > 0 && (
-              <div className="mb-6 overflow-x-auto">
-                <div className="flex flex-nowrap gap-2 pb-2 min-w-full">
-                  {product.tags
-                    .filter(tag => !['bestseller', 'heritage', 'luxury'].includes(tag.toLowerCase()))
-                    .map((tag, index) => (
-                      <span 
-                        key={index}
-                        className="px-3 py-1 text-xs border border-gray-200 rounded-full whitespace-nowrap"
-                      >
-                        {tag}
-                      </span>
-                    ))
-                  }
-                </div>
+            {product.fabric && (
+              <div className="mb-6">
+                <p className="text-black font-medium">Fabric: <span className="font-normal">{product.fabric}</span></p>
               </div>
             )}
+
+            <div className="mb-6 flex gap-2">
+              {product.isBest && (
+                <span className="px-3 py-1 text-xs border border-amber-500 text-amber-700 bg-amber-50 rounded-full whitespace-nowrap">
+                  Bestseller
+                </span>
+              )}
+              {product.isNew && (
+                <span className="px-3 py-1 text-xs border border-emerald-500 text-emerald-700 bg-emerald-50 rounded-full whitespace-nowrap">
+                  New Arrival
+                </span>
+              )}
+              {product.category && (
+                <span className="px-3 py-1 text-xs border border-indigo-500 text-indigo-700 bg-indigo-50 rounded-full whitespace-nowrap">
+                  {product.category.name}
+                </span>
+              )}
+            </div>
             
-            {/* Size Selection - Changed from dropdown to inline buttons */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-black dark:text-black font-medium">
@@ -705,23 +857,22 @@ const ProductDetail = () => {
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {['s', 'm', 'l', 'xl', 'xxl', 'unstitch'].map((size) => (
+                {product.sizes && product.sizes.map((size) => (
                   <button
-                    key={size}
+                    key={size.id}
                     type="button"
-                    onClick={() => handleSizeChange(size)}
+                    onClick={() => handleSizeChange(size.value)}
                     className={`min-w-[48px] h-10 px-3 py-1 uppercase font-medium text-sm border transition-all ${
-                      selectedSize === size 
+                      selectedSize === size.value 
                         ? 'border-[#c5a87f] bg-[#c5a87f] text-white' 
                         : 'border-gray-300 text-gray-700 hover:border-[#c5a87f]'
                     } rounded`}
                   >
-                    {size}
+                    {size.value === 'unstitch' ? 'Unstitch' : size.label}
                   </button>
                 ))}
               </div>
               
-              {/* Inline Size Guide */}
               {showSizeGuide && (
                 <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
                   <div className="bg-white px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -731,7 +882,7 @@ const ProductDetail = () => {
                       className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
                   </div>
@@ -846,20 +997,14 @@ const ProductDetail = () => {
               )}
             </div>
             
-            {/* Color Selection */}
             <div className="mb-6">
               <label className="block text-black dark:text-black font-medium mb-2">
                 Color {colorError && <span className="text-red-500 text-sm ml-2">*Please select a color</span>}
               </label>
               <div className="flex flex-wrap gap-3">
-                {[
-                  { value: 'red', hex: '#E53E3E' },
-                  { value: 'blue', hex: '#3182CE' },
-                  { value: 'green', hex: '#38A169' },
-                  { value: 'black', hex: '#1A202C' }
-                ].map(color => (
+                {product.colors && product.colors.map(color => (
                   <button
-                    key={color.value}
+                    key={color.id}
                     type="button"
                     onClick={() => {
                       setSelectedColor(color.value);
@@ -871,13 +1016,14 @@ const ProductDetail = () => {
                         : 'hover:scale-110'
                     }`}
                     style={{ 
-                      backgroundColor: color.hex,
+                      backgroundColor: color.hexCode,
                       border: color.value === 'black' ? '1px solid #E2E8F0' : 'none'
                     }}
-                    aria-label={`Select ${color.value} color`}
+                    aria-label={`Select ${color.name} color`}
+                    title={color.name}
                   >
                     {selectedColor === color.value && (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={color.value === 'black' ? 'white' : 'white'}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={['black', 'burgundy', 'navy'].includes(color.value) ? 'white' : 'white'}>
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     )}
@@ -886,7 +1032,6 @@ const ProductDetail = () => {
               </div>
             </div>
             
-            {/* Quantity Selector */}
             <div className="mb-8">
               <label className="block text-black dark:text-black font-medium mb-2">Quantity</label>
               <div className="flex items-center">
@@ -908,72 +1053,96 @@ const ProductDetail = () => {
               </div>
             </div>
             
-            {/* Action Buttons */}
             <div className="space-y-4">
               {addedToCart ? (
-                <div className="w-full py-3 bg-green-500 text-white font-medium rounded flex items-center justify-center space-x-2">
+                <div className="w-full py-3 bg-green-500 text-white font-medium rounded flex items-center justify-center space-x-2 animate-pulse">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  <span>Added to Cart</span>
+                  <span>Added to Cart!</span>
                 </div>
               ) : (
-                <button 
-                  className="w-full py-3 bg-[#1e2832] text-white font-medium hover:bg-[#c5a87f] transition-colors rounded"
-                  onClick={handleAddToCart}
-                >
-                  Add to Cart
-                </button>
+                <div className="relative">
+                  {cartAnimation && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                      <div className="cart-animation-overlay absolute inset-0 bg-[#1e2832] bg-opacity-90 rounded"></div>
+                      <div className="cart-animation-wrapper relative">
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          className="cart-animation-icon h-14 w-14 text-white" 
+                          viewBox="0 0 20 20" 
+                          fill="currentColor"
+                        >
+                          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                        </svg>
+                        <span className="cart-animation-badge absolute -top-2 -right-2 bg-[#c5a87f] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                          {quantity}
+                        </span>
+                        <span className="cart-animation-plus absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white font-bold text-2xl">+</span>
+                      </div>
+                    </div>
+                  )}
+                  <button 
+                    className={`w-full py-3 bg-[#1e2832] text-white font-medium hover:bg-[#c5a87f] transition-colors rounded flex items-center justify-center ${isAddingToCart ? 'cursor-wait opacity-90' : ''}`}
+                    onClick={handleAddToCart}
+                    disabled={isAddingToCart}
+                  >
+                    {isAddingToCart && !cartAnimation ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Adding to Cart...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                        </svg>
+                        Add to Cart
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
               
-              {/* Buy Now Button */}
-              <button 
-                className="w-full py-3 bg-[#c5a87f] text-black font-medium hover:bg-[#b39770] transition-colors rounded"
-                onClick={handleBuyNow}
-              >
-                Buy Now
-              </button>
 
-              {/* Display Buy Now error message */}
-              {buyNowError && (
-                <p className="text-red-500 text-sm text-center mt-2">{buyNowError}</p>
-              )}
             </div>
             
-            {/* Product Benefits */}
-            <div className="mt-8 space-y-4">
-              <div className="flex items-center text-black dark:text-black">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p>Estimated delivery: 3-5 business days</p>
-              </div>
-              
-              <div className="flex items-center text-black dark:text-black">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <p>Pay on delivery available</p>
-              </div>
-              
-              <div className="flex items-center text-black dark:text-black">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                <p>Use coupon <span className="font-medium">FIRST100</span> for ₹100 off on your first order</p>
-              </div>
-              
-              <div className="flex items-center text-black dark:text-black">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
-                <p>Free shipping nationwide on all orders</p>
+            <div className="mt-8 border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-display mb-3 text-black">Other Information</h3>
+              <div className="space-y-4">
+                {product.productBenefits && product.productBenefits.map((benefit) => (
+                  <div key={benefit.id} className="flex items-center text-black dark:text-black">
+                    {benefit.icon === 'clock' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-[#c5a87f]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {benefit.icon === 'cash' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-[#c5a87f]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                      </svg>
+                    )}
+                    {benefit.icon === 'coupon' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-[#c5a87f]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                    )}
+                    {benefit.icon === 'shipping' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-[#c5a87f]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                    )}
+                    <p dangerouslySetInnerHTML={{ __html: benefit.text.replace('FIRST100', '<span class="font-medium">FIRST100</span>') }}></p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
         
-        {/* Product Details Tabs */}
         <div className="mt-16 border-t border-gray-200">
           <div className="flex overflow-x-auto border-b border-gray-200">
             <button
@@ -984,7 +1153,7 @@ const ProductDetail = () => {
               }`}
               onClick={() => handleTabChange('about')}
             >
-              About the Product
+              {product.productInformation?.title || "About the Product"}
             </button>
             <button
               className={`px-6 py-4 text-sm font-medium border-b-2 whitespace-nowrap ${
@@ -1006,277 +1175,259 @@ const ProductDetail = () => {
             >
               Care Instructions
             </button>
+            <button
+              className={`px-6 py-4 text-sm font-medium border-b-2 whitespace-nowrap ${
+                activeTab === 'reviews'
+                  ? 'border-[#c5a87f] text-[#c5a87f]'
+                  : 'border-transparent text-gray-500 hover:text-[#c5a87f]'
+              }`}
+              onClick={() => handleTabChange('reviews')}
+            >
+              Reviews
+            </button>
           </div>
           
           <div className="py-8 text-black dark:text-black">
             {activeTab === 'about' && (
               <div>
-                <h3 className="text-xl font-display mb-4">About the Product</h3>
-                <p className="mb-4">The Embroidered Silk Dress is our signature design that brings together centuries-old artisanal techniques with modern aesthetics. This exquisite piece stands as a testament to India's rich textile heritage and the expertise of our master craftspeople.</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-                  <div>
-                    <h4 className="font-medium text-lg mb-3">Design Philosophy</h4>
-                    <p>Our design approach combines traditional motifs with contemporary silhouettes, creating pieces that honor cultural heritage while embracing modern sensibilities. The intricate embroidery patterns tell stories passed down through generations, each stitch meticulously placed by hand.</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-lg mb-3">Ethical Production</h4>
-                    <p>We believe in ethical production practices and fair compensation for artisans. Each piece is created in small batches at our workshop where we maintain the highest standards of craftsmanship while ensuring dignified working conditions for our skilled artisans.</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-lg mb-3">Materials</h4>
-                    <p>We source the finest pure silk from sustainable producers in Kashmir and South India. The fabric undergoes traditional dyeing processes using natural pigments that are environmentally friendly. Our commitment to quality means we never compromise on materials.</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-lg mb-3">Versatility</h4>
-                    <p>While designed for special occasions, our Embroidered Silk Dress can be styled in multiple ways for different events. Pair with minimal accessories for a sophisticated look, or enhance with statement jewelry for festive celebrations. The timeless design ensures it will remain a treasured piece in your wardrobe for years to come.</p>
-                  </div>
-                </div>
+                <h3 className="text-xl font-display mb-4">{product.productInformation?.title || "About the Product"}</h3>
+                <p className="mb-4">{product.productInformation?.description || product.description}</p>
               </div>
             )}
             
             {activeTab === 'shipping' && (
               <div>
                 <h3 className="text-xl font-display mb-4">Shipping & Returns</h3>
-                <p className="mb-4">We offer free standard shipping on all orders above ₹5000. For orders below this amount, a flat shipping fee of ₹250 will be applied. Delivery typically takes 3-5 business days depending on your location.</p>
-                <p className="mb-4">If you're not completely satisfied with your purchase, you can return it within 30 days of delivery for a full refund or exchange. Please note that items must be unworn, unwashed, and in their original packaging with all tags attached.</p>
-                <p>For international orders, please allow 7-14 business days for delivery. Customs duties and taxes may apply based on your country's regulations and are the responsibility of the customer.</p>
+                {product.shippingPoints ? (
+                  product.shippingPoints.map((point, index) => (
+                    <p key={index} className={index !== product.shippingPoints.length - 1 ? "mb-4" : ""}>
+                      {point}
+                    </p>
+                  ))
+                ) : (
+                  <p>Shipping information not available</p>
+                )}
               </div>
             )}
             
             {activeTab === 'care' && (
               <div>
                 <h3 className="text-xl font-display mb-4">Care Instructions</h3>
-                <p className="mb-4">To preserve the beauty and longevity of your Embroidered Silk Dress, we recommend the following care instructions:</p>
-                <ul className="list-disc pl-5 space-y-2">
-                  <li>Dry clean only</li>
-                  <li>Store in a cool, dry place away from direct sunlight</li>
-                  <li>Hang on a padded hanger to maintain shape</li>
-                  <li>Avoid contact with perfumes, lotions, and oils</li>
-                  <li>In case of minor stains, gently blot with a clean, dry cloth (do not rub)</li>
-                  <li>Steam on a low setting to remove wrinkles if necessary</li>
-                </ul>
+                {product.careInstructions && Array.isArray(product.careInstructions) && product.careInstructions.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-2">
+                    {product.careInstructions.map((instruction, index) => (
+                      <li key={index}>{instruction}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Care instructions not available</p>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'reviews' && (
+              <div className="p-6">
+                <div className="mb-8">
+                  <h3 className="text-xl font-display text-black mb-4">Customer Reviews</h3>
+                  
+                  {reviews && reviews.length > 0 ? (
+                    <div className="space-y-8">
+                      {reviews.slice(0, showAllReviews ? reviews.length : 2).map(review => (
+                        <div key={review.id} className="border border-gray-200 p-6 rounded">
+                          <div className="flex mb-3">
+                            <StarRating rating={review.rating} />
+                            <span className="ml-3 text-sm text-gray-600">
+                              {typeof review.date === 'string' ? formatDate(review.date) : formatDate(review.createdAt)}
+                            </span>
+                          </div>
+                          <p className="mb-2 text-black">{review.content || review.comment}</p>
+                          <p className="text-sm font-medium text-[#c5a87f]">{review.author || review.name || "Verified User"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">No reviews yet. Be the first to review this product.</p>
+                  )}
+                  
+                  {reviews && reviews.length > 2 && (
+                    <div className="mt-6 text-center">
+                      <button 
+                        className="px-6 py-2 text-sm font-medium text-[#c5a87f] border border-[#c5a87f] rounded hover:bg-[#c5a87f] hover:text-white transition-colors"
+                        onClick={toggleShowAllReviews}
+                      >
+                        {showAllReviews ? 'Show Less Reviews' : `Show All Reviews (${reviews.length})`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-12 border-t border-gray-200 pt-10">
+                  <div className="bg-gray-50 p-6 rounded">
+                    <h3 className="text-2xl font-display text-black mb-6">Write a Review</h3>
+                    
+                    {!currentUser ? (
+                      <div className="text-center p-6">
+                        <p className="text-gray-600 mb-4">Please sign in to write a review</p>
+                        <button
+                          onClick={() => setShowAuthDialog(true)}
+                          className="px-6 py-3 bg-[#c5a87f] text-white font-medium rounded hover:bg-[#b39770] transition-colors"
+                        >
+                          Sign In
+                        </button>
+                      </div>
+                    ) : hasUserReviewed ? (
+                      <div className="text-center p-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h4 className="text-xl font-medium text-black mb-2">Thank You for Your Review!</h4>
+                        <p className="text-gray-600">Your feedback helps other shoppers make better decisions.</p>
+                      </div>
+                    ) : (
+                      <form className="space-y-6" onSubmit={handleReviewSubmit}>
+                        <div>
+                          <label className="block text-black mb-2">Rating*</label>
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                className="text-2xl focus:outline-none mr-1"
+                                style={{ 
+                                  color: (hoveredRating || reviewFormData.rating) >= star ? '#c5a87f' : '#d1d5db' 
+                                }}
+                                onClick={() => handleStarClick(star)}
+                                onMouseEnter={() => handleStarHover(star)}
+                                onMouseLeave={handleStarLeave}
+                              >
+                                ★
+                              </button>
+                            ))}
+                            {reviewFormData.rating > 0 && (
+                              <span className="ml-2 text-sm text-gray-600 self-center">
+                                ({reviewFormData.rating}.0)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="reviewContent" className="block text-black mb-2">Your Review*</label>
+                          <textarea 
+                            id="reviewContent"
+                            rows={5}
+                            className="w-full border border-gray-300 rounded p-3 text-black focus:outline-none focus:border-[#c5a87f]"
+                            value={reviewFormData.content}
+                            onChange={(e) => setReviewFormData({...reviewFormData, content: e.target.value})}
+                            placeholder="Share your experience with this product"
+                            required
+                          ></textarea>
+                        </div>
+                        
+                        {reviewError && (
+                          <div className="p-3 bg-red-50 border border-red-200 rounded">
+                            <p className="text-red-600 text-sm">{reviewError}</p>
+                          </div>
+                        )}
+                        
+                        {reviewSuccess && (
+                          <div className="p-3 bg-green-50 border border-green-200 rounded">
+                            <p className="text-green-600 text-sm">Review submitted successfully!</p>
+                          </div>
+                        )}
+                        
+                        <div>
+                          <button 
+                            type="submit"
+                            className="px-6 py-3 bg-[#c5a87f] text-white font-medium rounded hover:bg-[#b39770] transition-colors disabled:bg-gray-400"
+                            disabled={reviewSubmitting}
+                          >
+                            {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
         
-        {/* Customer Reviews */}
-        <div className="mt-16 border-t border-gray-200 pt-10">
-          <h2 className="text-2xl font-display text-black mb-8">Customer Reviews</h2>
-          
-          <div className="space-y-8">
-            {reviews.slice(0, showAllReviews ? reviews.length : 2).map(review => (
-              <div key={review.id} className="border border-gray-200 p-6 rounded">
-                <h3 className="text-lg font-display text-black mb-2">{review.title}</h3>
-                
-                <div className="flex mb-2">
-                  {[...Array(5)].map((_, i) => (
-                    <svg 
-                      key={i} 
-                      className={`w-4 h-4 ${i < review.rating ? 'text-[#c5a87f]' : 'text-gray-300'} fill-current`} 
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                    </svg>
-                  ))}
-                </div>
-                
-                <p className="text-gray-700 mb-4">{review.content}</p>
-                
-                <div className="flex justify-between items-center">
-                  <p className="text-sm font-medium text-black">- {review.author}</p>
-                  <p className="text-sm text-gray-500">{formatDate(review.date)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {reviews.length > 2 && (
-            <div className="mt-6 text-center">
-              <button 
-                className="px-6 py-2 border border-gray-300 rounded text-black font-medium hover:bg-[#c5a87f] hover:text-white hover:border-[#c5a87f] transition-colors"
-                onClick={toggleShowAllReviews}
-              >
-                {showAllReviews ? 'Show Less' : 'View All Reviews'}
-              </button>
-            </div>
-          )}
-
-          {/* Write a Review Section */}
-          <div className="mt-12 border-t border-gray-200 pt-10">
-            <div className="bg-gray-50 p-6 rounded">
-              <h3 className="text-2xl font-display text-black mb-6">Write a Review</h3>
-              
-              <form className="space-y-6">
-                <div>
-                  <label htmlFor="reviewName" className="block text-black mb-2">Your Name</label>
-                  <input 
-                    type="text" 
-                    id="reviewName"
-                    className="w-full border border-gray-300 rounded p-3 text-black focus:outline-none focus:border-[#c5a87f]"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-black mb-2">Rating</label>
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        className="text-2xl text-[#c5a87f] focus:outline-none mr-1"
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="reviewTitle" className="block text-black mb-2">Review Title</label>
-                  <input 
-                    type="text" 
-                    id="reviewTitle"
-                    className="w-full border border-gray-300 rounded p-3 text-black focus:outline-none focus:border-[#c5a87f]"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="reviewContent" className="block text-black mb-2">Your Review</label>
-                  <textarea 
-                    id="reviewContent"
-                    rows="5"
-                    className="w-full border border-gray-300 rounded p-3 text-black focus:outline-none focus:border-[#c5a87f]"
-                  ></textarea>
-                </div>
-                
-                <div>
-                  <button 
-                    type="submit"
-                    className="px-6 py-3 bg-[#c5a87f] text-white font-medium rounded hover:bg-[#b39770] transition-colors"
-                  >
-                    Submit Review
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        {/* You May Also Like Section */}
         {similarProducts.length > 0 && (
-          <div className="mt-16 border-t border-gray-200 pt-10">
+          <div className="mt-20">
             <h2 className="text-2xl font-display text-black mb-8">You May Also Like</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {similarProducts.map((similarProduct) => (
-                <div key={similarProduct.id} className="group">
-                  {/* Product Image with "NEW" badge */}
-                  <div className="relative overflow-hidden mb-5">
-                    <div className="aspect-[3/4] bg-gray-100">
-                      <div 
-                        className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                        style={{ backgroundImage: `url(${similarProduct.image})` }}
-                      ></div>
-                    </div>
-                    
-                    {similarProduct.isNew && (
-                      <div className="absolute top-3 right-3 bg-[#c5a87f] text-white text-xs font-medium py-1 px-3">
-                        NEW
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Product Details */}
-                  <div className="text-center">
-                    <Link href={`/products/${similarProduct.id}`} className="block">
-                      <h3 className="font-display text-lg font-medium text-black hover:text-[#c5a87f] transition-colors">
-                        {similarProduct.name}
-                      </h3>
-                    </Link>
-                    <p className="text-gray-600 text-sm mt-1">{similarProduct.description}</p>
-                    
-                    {/* Star Rating */}
-                    {similarProduct.rating && (
-                      <div className="flex justify-center mt-2">
-                        <StarRating rating={similarProduct.rating} />
-                      </div>
-                    )}
-                    
-                    <p className="font-medium mt-2 text-black">
-                      {similarProduct.currency}{similarProduct.price.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {similarProducts.map(product => (
+                <ProductCard key={product.id} product={product} />
               ))}
             </div>
           </div>
         )}
       </section>
       
-      {/* Phone Number Dialog */}
-      {showPhoneDialog && (
+      {showAuthDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
-            <button 
-              onClick={() => setShowPhoneDialog(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            
-            <h3 className="text-2xl font-display text-black mb-4">Welcome to Alvira!</h3>
-            <p className="text-gray-600 mb-2">Please provide your phone number to complete your order.</p>
-            
-            {/* Coupon Highlight */}
-            <div className="bg-[#f8f3ea] border border-[#c5a87f] rounded-md p-4 mb-6">
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#c5a87f] mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                <p className="text-sm font-medium text-[#8c7358]">
-                  Use coupon <span className="font-bold">FIRST100</span> for ₹100 off on your first order!
-                </p>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <label htmlFor="phoneNumber" className="block text-black mb-2">Phone Number</label>
-              <input 
-                type="tel" 
-                id="phoneNumber"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="e.g., 9876543210"
-                className={`w-full border ${phoneError ? 'border-red-500' : 'border-gray-300'} rounded p-3 text-black focus:outline-none focus:border-[#c5a87f]`}
-              />
-              {phoneError && <p className="mt-2 text-red-500 text-sm">{phoneError}</p>}
-            </div>
-            
-            <div className="flex items-center justify-end space-x-4">
-              <button 
-                onClick={() => setShowPhoneDialog(false)}
-                className="px-6 py-2 border border-gray-300 rounded text-black hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handlePhoneSubmit}
-                className="px-6 py-2 bg-[#c5a87f] text-white rounded hover:bg-[#b39770] transition-colors"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
+          <PhoneVerification
+            onSuccess={handleAuthSuccess}
+            onCancel={() => setShowAuthDialog(false)}
+          />
         </div>
       )}
       
       <Footer />
+      <style jsx>{`
+        .cart-animation-overlay {
+          animation: fadeIn 0.3s ease-out;
+        }
+        
+        .cart-animation-wrapper {
+          animation: cartBounce 1.5s ease-in-out;
+        }
+        
+        .cart-animation-icon {
+          animation: cartShake 1.5s ease-in-out;
+        }
+        
+        .cart-animation-badge {
+          animation: badgePop 0.5s ease-out 0.2s both;
+        }
+        
+        .cart-animation-plus {
+          animation: plusFadeIn 0.5s ease-out 0.4s both;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes cartBounce {
+          0%, 20%, 40%, 100% { transform: translateY(0); }
+          30% { transform: translateY(-30px); }
+          50% { transform: translateY(-15px); }
+        }
+        
+        @keyframes cartShake {
+          0%, 100% { transform: rotate(0deg); }
+          20% { transform: rotate(-10deg); }
+          30% { transform: rotate(10deg); }
+          40% { transform: rotate(-5deg); }
+          50% { transform: rotate(5deg); }
+          60% { transform: rotate(0deg); }
+        }
+        
+        @keyframes badgePop {
+          0% { transform: scale(0); opacity: 0; }
+          60% { transform: scale(1.2); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes plusFadeIn {
+          0% { opacity: 0; transform: translate(-50%, 10px); }
+          100% { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </main>
   );
 };

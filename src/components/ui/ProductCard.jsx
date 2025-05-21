@@ -1,7 +1,56 @@
 import Link from 'next/link';
 import StarRating from './StarRating';
+import { useState, useEffect } from 'react';
+import { fetchProductReviews, calculateAverageRating } from '@/utils/api';
 
 const ProductCard = ({ product }) => {
+  const [productRating, setProductRating] = useState(product.rating || 0);
+
+  // Helper function to get the primary image URL
+  const getPrimaryImageURL = (product) => {
+    // Check if product has images array with objects (API format)
+    if (product.images && product.images.length > 0) {
+      // First check if the images are objects with imageUrl property
+      if (typeof product.images[0] === 'object' && product.images[0].imageUrl) {
+        // Try to find the primary image
+        const primaryImage = product.images.find(img => img.isPrimary);
+        if (primaryImage) {
+          return primaryImage.imageUrl;
+        }
+        // If no primary image, return the first image
+        return product.images[0].imageUrl;
+      }
+      
+      // If images are simple strings (from fallback data)
+      if (typeof product.images[0] === 'string') {
+        return product.images[0];
+      }
+    }
+    
+    // Fallback to placeholder
+    return 'https://via.placeholder.com/300x400';
+  };
+  
+  // Get the display image using our helper function
+  const displayImage = getPrimaryImageURL(product);
+
+  // Fetch the product reviews and calculate average rating
+  useEffect(() => {
+    const fetchRating = async () => {
+      try {
+        if (product.id) {
+          const reviews = await fetchProductReviews(product.id);
+          const averageRating = calculateAverageRating(reviews);
+          setProductRating(averageRating);
+        }
+      } catch (error) {
+        console.error('Error fetching product rating:', error);
+      }
+    };
+
+    fetchRating();
+  }, [product.id]);
+    
   return (
     <Link href={`/products/${product.id}`} className="block group cursor-pointer hover:no-underline">
       <div className="relative h-full">
@@ -10,7 +59,7 @@ const ProductCard = ({ product }) => {
           <div className="aspect-[3/4] bg-gray-100">
             <div 
               className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-              style={{ backgroundImage: `url(${product.image})` }}
+              style={{ backgroundImage: `url(${displayImage})` }}
             ></div>
           </div>
           
@@ -41,9 +90,9 @@ const ProductCard = ({ product }) => {
           <p className="text-gray-600 text-sm mt-1">{product.description}</p>
           
           {/* Star Rating */}
-          {product.rating && (
+          {productRating > 0 && (
             <div className="flex justify-center mt-2">
-              <StarRating rating={product.rating} />
+              <StarRating rating={productRating} />
             </div>
           )}
           
