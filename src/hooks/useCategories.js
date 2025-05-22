@@ -21,8 +21,16 @@ export const useCategories = () => {
         throw err;
       }
     },
-    staleTime: 1000 * 60 * 60, // 1 hour
+    staleTime: 1000 * 60 * 60 * 2, // 2 hours
     cacheTime: 1000 * 60 * 60 * 24, // 24 hours
-    retry: 3,
+    retry: (failureCount, error) => {
+      // Don't retry if we hit the rate limit
+      if (error.status === 429) {
+        return false;
+      }
+      // Only retry 3 times for other errors
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 30000), // Exponential backoff with max 30s
   });
 };
