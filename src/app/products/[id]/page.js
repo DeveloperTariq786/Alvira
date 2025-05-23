@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Link from 'next/link';
+import LoadingState from '@/components/ui/LoadingState';
 import { addToCart } from '@/utils/cart';
 import { fetchProductById, fetchProducts, createUser, verifyPhone, resendOTP, createReview, fetchProductReviews, calculateAverageRating } from '@/utils/api';
 import Image from 'next/image';
@@ -237,44 +238,31 @@ const ProductDetail = () => {
     }
 
     try {
-      // Start loading state immediately
       setIsAddingToCart(true);
-      setCartAnimation(true);
       
       const productToAdd = {
         id: product.id,
         quantity: quantity
       };
 
-      // Set a timeout of 3 seconds for the cart addition
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Cart addition timed out')), 3000);
-      });
-      
-      // Race between the actual cart addition and the timeout
-      await Promise.race([
-        addToCart(productToAdd),
-        timeoutPromise
-      ]);
+      // Add to cart
+      await addToCart(productToAdd);
 
-      // Batch state updates and use shorter animation duration
-      setTimeout(() => {
-        setIsAddingToCart(false);
-        setAddedToCart(true);
-        setCartAnimation(false);
-        
-        // Show success state for 1 second instead of 2
-        setTimeout(() => setAddedToCart(false), 1000);
-      }, 500); // Reduced from 1500ms to 500ms
-      
+      // After successful cart addition, update cart
       window.dispatchEvent(new Event('cart-updated'));
+      
+      // Show success state briefly before navigation
+      setAddedToCart(true);
+      
+      // Navigate after a short delay to show success state
+      setTimeout(() => {
+        router.push('/cart');
+      }, 800);
     } catch (error) {
       console.error('Error adding to cart:', error);
-      setAuthError(error.message === 'Cart addition timed out' 
-        ? 'Taking too long to add item. Please try again.' 
-        : 'Failed to add item to cart. Please try again.');
+      setAuthError('Failed to add item to cart. Please try again.');
       setIsAddingToCart(false);
-      setCartAnimation(false);
+      setAddedToCart(false);
     }
   };
 
@@ -530,97 +518,110 @@ const ProductDetail = () => {
         <div className="container mx-auto pt-16 md:pt-20 pb-20 px-4">
           {/* Shimmer Loading Effect */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-pulse">
-            {/* Product Images Shimmer */}
-            <div className="space-y-4">
-              {/* Main Image Shimmer */}
-              <div className="h-[500px] md:h-[650px] bg-gray-200 rounded-md"></div>
-              
-              {/* Thumbnails Shimmer */}
-              <div className="grid grid-cols-4 gap-4">
-                {[...Array(4)].map((_, index) => (
-                  <div key={index} className="aspect-square bg-gray-200 rounded-md"></div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Product Info Shimmer */}
-            <div className="flex flex-col justify-start space-y-6">
-              {/* Title Shimmer */}
-              <div className="h-10 bg-gray-200 rounded-md w-3/4"></div>
-              
-              {/* Rating Shimmer */}
-              <div className="h-5 bg-gray-200 rounded-md w-1/4"></div>
-              
-              {/* Price Shimmer */}
-              <div className="h-8 bg-gray-200 rounded-md w-1/2"></div>
-              
-              {/* Description Shimmer */}
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded-md w-full"></div>
-                <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
-                <div className="h-4 bg-gray-200 rounded-md w-4/6"></div>
-              </div>
-              
-              {/* Fabric Info Shimmer */}
-              <div className="h-6 bg-gray-200 rounded-md w-2/5"></div>
-              
-              {/* Size Selection Shimmer */}
-              <div className="space-y-3">
-                <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
-                <div className="flex flex-wrap gap-2">
-                  {[...Array(6)].map((_, index) => (
-                    <div key={index} className="h-10 w-16 bg-gray-200 rounded-md"></div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Color Selection Shimmer */}
-              <div className="space-y-3">
-                <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
-                <div className="flex flex-wrap gap-3">
-                  {[...Array(8)].map((_, index) => (
-                    <div key={index} className="h-10 w-10 bg-gray-200 rounded-full"></div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Quantity Shimmer */}
-              <div className="space-y-3">
-                <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
-                <div className="flex items-center">
-                  <div className="h-10 w-10 bg-gray-200 rounded-l-md"></div>
-                  <div className="h-10 w-12 bg-gray-200"></div>
-                  <div className="h-10 w-10 bg-gray-200 rounded-r-md"></div>
-                </div>
-              </div>
-              
-              {/* Action Buttons Shimmer */}
-              <div className="space-y-4 w-full">
-                <div className="h-12 bg-gray-200 rounded-md w-full"></div>
-                <div className="h-12 bg-gray-200 rounded-md w-full"></div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Tab Section Shimmer */}
-          <div className="mt-16 border-t border-gray-200 pt-6">
-            <div className="flex overflow-x-auto space-x-6 border-b border-gray-200 pb-2">
-              {[...Array(3)].map((_, index) => (
-                <div key={index} className="h-8 bg-gray-200 rounded-md w-24 flex-shrink-0"></div>
-              ))}
-            </div>
-            <div className="py-8">
+            {/* Shimmer Loading Effect */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-pulse">
+              {/* Product Images Shimmer */}
               <div className="space-y-4">
-                <div className="h-6 bg-gray-200 rounded-md w-1/3"></div>
+                {/* Main Image Shimmer */}
+                <div className="h-[500px] md:h-[650px] bg-gray-200 rounded-md"></div>
+                
+                {/* Thumbnails Shimmer */}
+                <div className="grid grid-cols-4 gap-4">
+                  {[...Array(4)].map((_, index) => (
+                    <div key={index} className="aspect-square bg-gray-200 rounded-md"></div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Product Info Shimmer */}
+              <div className="flex flex-col justify-start space-y-6">
+                {/* Title Shimmer */}
+                <div className="h-10 bg-gray-200 rounded-md w-3/4"></div>
+                
+                {/* Rating Shimmer */}
+                <div className="h-5 bg-gray-200 rounded-md w-1/4"></div>
+                
+                {/* Price Shimmer */}
+                <div className="h-8 bg-gray-200 rounded-md w-1/2"></div>
+                
+                {/* Description Shimmer */}
                 <div className="space-y-2">
                   <div className="h-4 bg-gray-200 rounded-md w-full"></div>
                   <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
                   <div className="h-4 bg-gray-200 rounded-md w-4/6"></div>
                 </div>
+                
+                {/* Fabric Info Shimmer */}
+                <div className="h-6 bg-gray-200 rounded-md w-2/5"></div>
+                
+                {/* Size Selection Shimmer */}
+                <div className="space-y-3">
+                  <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
+                  <div className="flex flex-wrap gap-2">
+                    {[...Array(6)].map((_, index) => (
+                      <div key={index} className="h-10 w-16 bg-gray-200 rounded-md"></div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Color Selection Shimmer */}
+                <div className="space-y-3">
+                  <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
+                  <div className="flex flex-wrap gap-3">
+                    {[...Array(8)].map((_, index) => (
+                      <div key={index} className="h-10 w-10 bg-gray-200 rounded-full"></div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Quantity Shimmer */}
+                <div className="space-y-3">
+                  <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
+                  <div className="flex items-center">
+                    <div className="h-10 w-10 bg-gray-200 rounded-l-md"></div>
+                    <div className="h-10 w-12 bg-gray-200"></div>
+                    <div className="h-10 w-10 bg-gray-200 rounded-r-md"></div>
+                  </div>
+                </div>
+                
+                {/* Action Buttons Shimmer */}
+                <div className="space-y-4 w-full">
+                  <div className="h-12 bg-gray-200 rounded-md w-full"></div>
+                  <div className="h-12 bg-gray-200 rounded-md w-full"></div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Tab Section Shimmer */}
+            <div className="mt-16 border-t border-gray-200 pt-6">
+              <div className="flex overflow-x-auto space-x-6 border-b border-gray-200 pb-2">
+                {[...Array(3)].map((_, index) => (
+                  <div key={index} className="h-8 bg-gray-200 rounded-md w-24 flex-shrink-0"></div>
+                ))}
+              </div>
+              <div className="py-8">
+                <div className="space-y-4">
+                  <div className="h-6 bg-gray-200 rounded-md w-1/3"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded-md w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
+                    <div className="h-4 bg-gray-200 rounded-md w-4/6"></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+        <Footer />
+      </main>
+    );
+  }
+
+  if (isAddingToCart) {
+    return (
+      <main className="min-h-screen bg-white dark:bg-white">
+        <Header />
+        <LoadingState message="Adding to Cart..." />
         <Footer />
       </main>
     );
@@ -882,7 +883,7 @@ const ProductDetail = () => {
                       className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
                   </div>
@@ -1054,58 +1055,34 @@ const ProductDetail = () => {
             </div>
             
             <div className="space-y-4">
-              {addedToCart ? (
-                <div className="w-full py-3 bg-green-500 text-white font-medium rounded flex items-center justify-center space-x-2 animate-pulse">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>Added to Cart!</span>
-                </div>
-              ) : (
-                <div className="relative">
-                  {cartAnimation && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                      <div className="cart-animation-overlay absolute inset-0 bg-[#1e2832] bg-opacity-90 rounded"></div>
-                      <div className="cart-animation-wrapper relative">
-                        <svg 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          className="cart-animation-icon h-14 w-14 text-white" 
-                          viewBox="0 0 20 20" 
-                          fill="currentColor"
-                        >
-                          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                        </svg>
-                        <span className="cart-animation-badge absolute -top-2 -right-2 bg-[#c5a87f] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                          {quantity}
-                        </span>
-                        <span className="cart-animation-plus absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white font-bold text-2xl">+</span>
-                      </div>
+              <div className="relative">
+                <button 
+                  className={`w-full py-3 ${addedToCart ? 'bg-green-500' : 'bg-[#1e2832] hover:bg-[#c5a87f]'} text-white font-medium transition-all duration-300 rounded flex items-center justify-center ${isAddingToCart ? 'cursor-wait' : ''}`}
+                  onClick={handleAddToCart}
+                  disabled={isAddingToCart || addedToCart}
+                >
+                  {addedToCart ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-bounce" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <span>Added! Redirecting to Cart...</span>
                     </div>
+                  ) : isAddingToCart ? (
+                    <LoadingState type="button" message="Adding to Cart..." />
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                      </svg>
+                      Add to Cart
+                    </>
                   )}
-                  <button 
-                    className={`w-full py-3 bg-[#1e2832] text-white font-medium hover:bg-[#c5a87f] transition-colors rounded flex items-center justify-center ${isAddingToCart ? 'cursor-wait opacity-90' : ''}`}
-                    onClick={handleAddToCart}
-                    disabled={isAddingToCart}
-                  >
-                    {isAddingToCart && !cartAnimation ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Adding to Cart...
-                      </>
-                    ) : (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                        </svg>
-                        Add to Cart
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+                </button>
+                {authError && (
+                  <p className="text-red-500 text-sm mt-2 text-center">{authError}</p>
+                )}
+              </div>
               
 
             </div>

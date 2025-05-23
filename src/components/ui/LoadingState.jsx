@@ -1,11 +1,13 @@
 import Image from 'next/image';
 
-const LoadingState = ({ height = "85vh", message = "Loading...", size = "full", type = "page" }) => {
-  if (type === "button") {
+const LoadingState = ({ height = "85vh", message = "Loading...", size = "full", type = "page" }) => {  if (type === "button") {
     return (
-      <div className="flex items-center space-x-2">
-        <div className="animate-spin h-4 w-4 border-2 border-t-transparent border-[#c5a87f] rounded-full"></div>
-        {message && <span className="text-sm">{message}</span>}
+      <div className="flex items-center justify-center space-x-2 py-1">
+        <div className="relative">
+          <div className="animate-spin h-5 w-5 border-3 border-t-transparent border-white rounded-full"></div>
+          <div className="absolute inset-0 animate-ping opacity-30 h-5 w-5 border-3 border-white rounded-full"></div>
+        </div>
+        {message && <span className="text-sm font-medium">{message}</span>}
       </div>
     );
   }

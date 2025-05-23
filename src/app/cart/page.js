@@ -4,14 +4,17 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getCartItems, updateCartItemQuantity, removeFromCart } from '@/utils/cart';
+import { calculateTotalPrice } from '@/utils/priceCalculations';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import LoadingState from '@/components/ui/LoadingState';
 
 const CartPage = () => {
   const [cartItems, setCartItems] = useState([]);
+  const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
   const [taxes, setTaxes] = useState(0);
+  const [shipping, setShipping] = useState(0);
   const [loading, setLoading] = useState(true);
   const [pendingUpdates, setPendingUpdates] = useState({
     items: {},
@@ -59,13 +62,18 @@ const CartPage = () => {
       console.error('Items is not an array:', items);
       setTotal(0);
       setTaxes(0);
+      setSubtotal(0);
+      setShipping(0);
       return;
     }
 
-    const subtotal = items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
-    const calculatedTaxes = subtotal * 0.18; // 18% tax rate example
-    setTotal(subtotal + calculatedTaxes);
-    setTaxes(calculatedTaxes);
+    const subtotalAmount = items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+    const { tax, shipping, total } = calculateTotalPrice(subtotalAmount);
+
+    setSubtotal(subtotalAmount);
+    setTaxes(tax);
+    setShipping(shipping);
+    setTotal(total);
   };
 
   const updateQuantity = async (id, newQuantity) => {
@@ -155,11 +163,6 @@ const CartPage = () => {
       }
     }
   };
-
-  // Safely calculate subtotal
-  const subtotal = Array.isArray(cartItems) 
-    ? cartItems.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0)
-    : 0;
 
   if (loading) {
     return (
@@ -260,10 +263,9 @@ const CartPage = () => {
                       <span className="text-gray-600">Subtotal</span>
                       <span className="font-medium text-[#1e2832]">₹{subtotal.toLocaleString()}</span>
                     </div>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Shipping</span>
-                      <span className="font-medium text-[#1e2832]">Free</span>
+                      <div className="flex justify-between">
+                      <span className="text-gray-600">Delivery Charges</span>
+                      <span className="text-green-600 font-medium">Free</span>
                     </div>
                     
                     <div className="flex justify-between">

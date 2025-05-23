@@ -7,12 +7,15 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useRouter } from 'next/navigation';
 import { getCart, getUserAddresses, deleteAddress, createOrder } from '@/utils/api';
+import { calculateTotalPrice } from '@/utils/priceCalculations';
+import { validateCoupon } from '@/utils/couponValidation';
 import LoadingState from '@/components/ui/LoadingState';
 
 const CheckoutPage = () => {
   const [cartItems, setCartItems] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
   const [taxes, setTaxes] = useState(0);
+  const [shipping, setShipping] = useState(0);
   const [total, setTotal] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [addressList, setAddressList] = useState([]);
@@ -39,12 +42,15 @@ const CheckoutPage = () => {
         
         // Set cart data from the API response
         setCartItems(cartData.items);
-        setSubtotal(cartData.total);
+        const subtotalAmount = cartData.total;
+        setSubtotal(subtotalAmount);
         
-        // Calculate tax (18%)
-        const calculatedTaxes = cartData.total * 0.18;
-        setTaxes(calculatedTaxes);
-        setTotal(cartData.total + calculatedTaxes - discount);
+        // Calculate price details
+        const { tax, shipping, total } = calculateTotalPrice(subtotalAmount);
+        setTaxes(tax);
+        setShipping(shipping);
+        setTotal(total - discount); // Apply any existing discount
+        
       } catch (err) {
         console.error('Error fetching cart data:', err);
         
@@ -124,7 +130,7 @@ const CheckoutPage = () => {
     }
   };
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     setCouponError('');
     
     if (!couponCode.trim()) {
@@ -135,20 +141,24 @@ const CheckoutPage = () => {
     // Set loading state
     setCouponLoading(true);
     
-    // Simulate API call with setTimeout
-    setTimeout(() => {
-      // Check if it's our demo coupon code
-      if (couponCode.toUpperCase() === 'FIRST100') {
-        setDiscount(100);
+    try {
+      // Use the validateCoupon function from our utility
+      const result = await validateCoupon(couponCode);
+      
+      if (result.isValid) {
+        setDiscount(result.discount);
         setCouponApplied(true);
-        
         // Recalculate total with discount
-        setTotal(subtotal + taxes - 100);
+        setTotal(subtotal + taxes + shipping - result.discount);
       } else {
-        setCouponError('Invalid coupon code');
+        setCouponError(result.error);
       }
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      setCouponError('Failed to apply coupon. Please try again.');
+    } finally {
       setCouponLoading(false);
-    }, 800);
+    }
   };
 
   const handlePlaceOrder = async () => {
@@ -177,7 +187,7 @@ const CheckoutPage = () => {
         })),
         addressId: selectedAddress,
         subtotal: subtotal,
-        shipping: 100, // Fixed shipping cost
+        shipping: shipping, // Use calculated shipping cost
         tax: taxes,
         total: total,
         currency: 'INR'
@@ -464,7 +474,7 @@ const CheckoutPage = () => {
                               className="px-4 py-2 bg-[#c5a87f] text-white font-medium rounded-r flex items-center justify-center min-w-[80px]"
                             >
                               {couponLoading ? (
-                                <LoadingState type="button" message="" size="small" />
+                                <LoadingState type="button" message="Applying..." size="small" />
                               ) : (
                                 "Apply"
                               )}
@@ -484,7 +494,7 @@ const CheckoutPage = () => {
                               setCouponApplied(false);
                               setCouponCode('');
                               setDiscount(0);
-                              setTotal(subtotal + taxes);
+                              setTotal(subtotal + taxes + shipping);
                             }}
                             className="text-sm text-red-500"
                           >
@@ -508,7 +518,7 @@ const CheckoutPage = () => {
                       
                       <div className="flex justify-between">
                         <span className="text-gray-600">Delivery Charges</span>
-                        <span className="order-summary-amount">₹100</span>
+                        <span className="text-green-600 font-medium">Free</span>
                       </div>
                       
                       <div className="flex justify-between">
@@ -552,4 +562,4 @@ const CheckoutPage = () => {
   );
 };
 
-export default CheckoutPage; 
+export default CheckoutPage;

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getCartItems } from '@/utils/cart';
+import { calculateTotalPrice } from '@/utils/priceCalculations';
 import { createCODPayment, createRazorpayPayment, verifyRazorpayPayment, getUserProfile, clearCart } from '@/utils/api';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -13,6 +14,8 @@ const PaymentPage = () => {
   const router = useRouter();
   const [cartItems, setCartItems] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
+  const [taxes, setTaxes] = useState(0);
+  const [shipping, setShipping] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [orderId, setOrderId] = useState(null);
@@ -58,8 +61,12 @@ const PaymentPage = () => {
     const calculateTotals = (items) => {
       if (!Array.isArray(items) || items.length === 0) {
         // Only set these if we don't already have them from order summary
-        if (!orderSummaryData.subtotal) setSubtotal(0);
-        if (!orderSummaryData.total) setTotal(0);
+        if (!orderSummaryData.subtotal) {
+          setSubtotal(0);
+          setTaxes(0);
+          setShipping(0);
+          setTotal(0);
+        }
         return;
       }
       
@@ -69,9 +76,16 @@ const PaymentPage = () => {
         return acc + (price * quantity);
       }, 0);
       
+      // Calculate totals using the utility
+      const { tax, shipping, total } = calculateTotalPrice(itemsSubtotal);
+      
       // Only update if not already set from order summary
-      if (!orderSummaryData.subtotal) setSubtotal(itemsSubtotal);
-      if (!orderSummaryData.total) setTotal(itemsSubtotal);
+      if (!orderSummaryData.subtotal) {
+        setSubtotal(itemsSubtotal);
+        setTaxes(tax);
+        setShipping(shipping);
+        setTotal(total);
+      }
     };
 
     const fetchCartItems = async () => {
