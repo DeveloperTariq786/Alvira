@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -269,6 +269,26 @@ const ProductsContent = () => {
       </button>
     </div>
   );
+
+  const allCategories = useMemo(() => {
+    if (!productsData) return ['All Products'];
+    const categories = Array.from(new Set(productsData.map(p => p.category)))
+      .filter(cat => typeof cat === 'string' && cat.trim() !== '')
+      .map(cat => cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase());
+    return ['All Products', ...categories];
+  }, [productsData]);
+
+  const allFabrics = useMemo(() => {
+    if (!productsData) return [];
+    const fabricList = ['cotton', 'linen', 'silk', 'wool', 'polyester', 'rayon'];
+    return Array.from(new Set(productsData.flatMap(p => p.tags || [])))
+      .filter(tag => typeof tag === 'string' && tag.trim() !== '' && fabricList.includes(tag.toLowerCase()))
+      .map(fab => fab.charAt(0).toUpperCase() + fab.slice(1).toLowerCase());
+  }, [productsData]);
+
+  if (error && !productsData) {
+    return <div>Error: {error}</div>;
+  }
 
   return (
     <section className="container mx-auto py-20 px-4">
