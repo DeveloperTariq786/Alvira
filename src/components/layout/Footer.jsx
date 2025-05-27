@@ -21,11 +21,8 @@ const Footer = () => {
                 />
               </div>
             </div>
-            <h2 className="font-display text-2xl text-white mb-4 text-center">ALVIRA</h2>
-            <p className="text-sm md:text-base leading-relaxed mb-8 text-center text-gray-300/90 font-light max-w-xl mx-auto">
-              Alvira celebrates the rich heritage of Indian craftsmanship with 
-              contemporary design sensibilities, creating pieces that are timeless in 
-              their elegance.
+            <h2 className="font-display text-2xl text-white mb-4 text-center">ALVIRA</h2>            <p className="text-sm md:text-base leading-relaxed mb-8 text-center text-gray-300/90 font-light max-w-xl mx-auto">
+              A premium handcrafted label that revives the traditional Kashmiri Aari (Kashida) embroidery, bringing timeless elegance to modern fashion. Each piece is a tribute to heritage, crafted with precision by skilled artisans.
             </p>
             <div className="flex justify-center space-x-5">
               <a href="https://www.facebook.com/Alvira.Insta/" className="text-gray-400 hover:text-[#d4b78f] transition-colors duration-300" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
