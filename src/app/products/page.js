@@ -270,23 +270,43 @@ const ProductsContent = () => {
     </div>
   );
 
+  // Render product cards
+  const renderProductCards = () => {
+    if (loading) {
+      return renderLoading();
+    }
+    if (error) {
+      return renderError();
+    }
+    if (filteredProducts.length === 0) {
+      return renderNoResults();
+    }
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+        {filteredProducts.map((product, index) => (
+          <ProductCard key={product.id || index} product={product} />
+        ))}
+      </div>
+    );
+  };
+
   const allCategories = useMemo(() => {
-    if (!productsData) return ['All Products'];
-    const categories = Array.from(new Set(productsData.map(p => p.category)))
+    if (!products || products.length === 0) return ['All Products'];
+    const categories = Array.from(new Set(products.map(p => p.category)))
       .filter(cat => typeof cat === 'string' && cat.trim() !== '')
       .map(cat => cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase());
     return ['All Products', ...categories];
-  }, [productsData]);
+  }, [products]);
 
   const allFabrics = useMemo(() => {
-    if (!productsData) return [];
+    if (!products || products.length === 0) return [];
     const fabricList = ['cotton', 'linen', 'silk', 'wool', 'polyester', 'rayon'];
-    return Array.from(new Set(productsData.flatMap(p => p.tags || [])))
+    return Array.from(new Set(products.flatMap(p => p.tags || [])))
       .filter(tag => typeof tag === 'string' && tag.trim() !== '' && fabricList.includes(tag.toLowerCase()))
       .map(fab => fab.charAt(0).toUpperCase() + fab.slice(1).toLowerCase());
-  }, [productsData]);
+  }, [products]);
 
-  if (error && !productsData) {
+  if (error && (!products || products.length === 0)) {
     return <div>Error: {error}</div>;
   }
 
@@ -847,19 +867,7 @@ const ProductsContent = () => {
         {/* Product Grid - Right Side */}
         <div className="w-full lg:w-3/4">
           {/* Products Display */}
-          {loading ? (
-            renderLoading()
-          ) : error ? (
-            renderError()
-          ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : (
-            renderNoResults()
-          )}
+          {renderProductCards()}
         </div>
       </div>
     </section>
