@@ -48,11 +48,11 @@ export default function AboutPage() {
               </div>
               
               <div className="order-1 lg:order-2 lg:w-1/3 flex justify-center mb-4 lg:mb-0">
-                <div className="relative w-56 h-72 md:w-64 md:h-80 overflow-hidden rounded-[50%] border border-gray-200 shadow-md">
-                  <Image 
+                <div className="relative w-56 h-72 md:w-64 md:h-80 overflow-hidden rounded-[50%] border border-gray-200 shadow-md">                  <Image 
                     src="https://firebasestorage.googleapis.com/v0/b/draftai-b5cb9.appspot.com/o/Demo%2FWhatsApp%20Image%202025-04-25%20at%208.43.59%20PM.jpeg?alt=media&token=8474baff-2547-443f-958a-e9a7b6dd208d" 
                     alt="Kashmiri Hand Embroidery" 
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover object-center"
                   />
                 </div>
