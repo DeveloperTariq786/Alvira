@@ -129,7 +129,7 @@ export default function AboutPage() {
                   <div>
                     <h4 className="font-semibold text-[#2c3639] mb-2 font-display">Address</h4>
                     <p className="text-[#2c3639]/90 text-base">
-                      123 Fashion Avenue, Downtown<br />
+                      Alvira Fashion Avenue, Downtown<br />
                       Srinagar, Jammu & Kashmir, India
                     </p>
                     <p className="text-sm text-[#2c3639]/80 mt-2">
@@ -143,11 +143,10 @@ export default function AboutPage() {
                   <div className="mt-1 bg-[#a27b5c]/20 p-3 rounded-full flex items-center justify-center min-w-10 min-h-10">
                     <FaPhoneAlt className="text-[#a27b5c] text-lg" />
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-[#2c3639] mb-2 font-display">Phone</h4>
-                    <p className="text-[#2c3639]/90 text-base">+91 9876 543 210</p>
+                  <div>                    <h4 className="font-semibold text-[#2c3639] mb-2 font-display">Phone</h4>
+                    <a href="tel:+919985852000" className="text-[#2c3639]/90 text-base hover:text-[#a27b5c] transition-colors">+91 9985852000</a>
                     <p className="text-sm text-[#2c3639]/80 mt-2">
-                      Monday to Saturday, 10AM - 8PM
+                      Monday to Saturday, 9AM - 9PM
                     </p>
                   </div>
                 </div>
@@ -157,21 +156,16 @@ export default function AboutPage() {
                   <div className="mt-1 bg-[#a27b5c]/20 p-3 rounded-full flex items-center justify-center min-w-10 min-h-10">
                     <FaEnvelope className="text-[#a27b5c] text-lg" />
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-[#2c3639] mb-2 font-display">Email</h4>
-                    <p className="text-[#2c3639]/90 text-base">clientservices@alvira.com</p>
+                  <div>                    <h4 className="font-semibold text-[#2c3639] mb-2 font-display">Email</h4>
+                    <a href="mailto:alvira998585@gmail.com" className="text-[#2c3639]/90 text-base hover:text-[#a27b5c] transition-colors">alvira998585@gmail.com</a>
                     <p className="text-sm text-[#2c3639]/80 mt-2">
                       We respond within 24 hours
                     </p>
                   </div>
                 </div>
               </div>
-              
-              <div className="mt-8 pt-6 border-t border-[#dcd7c9]">
-                {/* Schedule a consultation link removed as requested */}
-              </div>
             </div>
-
+            
             {/* Right Side - Map */}
             <div className="rounded-lg overflow-hidden shadow-md h-[350px] md:h-[500px] relative bg-white border border-[#dcd7c9]">
               <iframe 
@@ -197,4 +191,4 @@ export default function AboutPage() {
       <Footer />
     </main>
   );
-} 
+}

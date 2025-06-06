@@ -56,6 +56,9 @@ const ProductDetail = () => {
   const [reviewSuccess, setReviewSuccess] = useState(false);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [hoveredRating, setHoveredRating] = useState(0);
+  const [isSubmittingPreorder, setIsSubmittingPreorder] = useState(false);
+  const [isProcessingBuyNow, setIsProcessingBuyNow] = useState(false);
+  const actionAfterAuth = useRef(null);
 
   const checkAuth = () => {
     const token = localStorage.getItem('token');
@@ -168,7 +171,6 @@ const ProductDetail = () => {
   };
 
   const StarRating = ({ rating }) => {
-    // If rating is undefined or 0, show a message about no ratings yet
     if (!rating) {
       return (
         <div className="flex items-center">
@@ -216,54 +218,135 @@ const ProductDetail = () => {
     setColorError(false);
     setAuthError('');
 
-    let hasError = false;
+    if (product?.stockStatus === 'OUT_OF_STOCK') {
+      console.log("Product is out of stock. Cannot add to cart.");
+      return;
+    }
 
+    let hasError = false;
     if (!selectedSize) {
       setSizeError(true);
       hasError = true;
     }
-
     if (!selectedColor) {
       setColorError(true);
       hasError = true;
     }
+    if (hasError) return;
 
-    if (hasError) {
-      return;
-    }
+    const executeActualAddToCart = async () => {
+      try {
+        setIsAddingToCart(true);
+        const productToAdd = {
+          id: product.id,
+          quantity: quantity
+        };
+        await addToCart(productToAdd);
+        window.dispatchEvent(new Event('cart-updated'));
+        setAddedToCart(true);
+        setTimeout(() => {
+          router.push('/cart');
+        }, 800);
+      } catch (error) {
+        console.error('Error adding to cart:', error);
+        setAuthError('Failed to add item to cart. Please try again.');
+        setIsAddingToCart(false);
+        setAddedToCart(false);
+      } finally {
+        if (isAddingToCart) setIsAddingToCart(false);
+      }
+    };
 
     if (!checkAuth()) {
+      actionAfterAuth.current = executeActualAddToCart;
       setShowAuthDialog(true);
       return;
     }
+    await executeActualAddToCart();
+  };
 
-    try {
-      setIsAddingToCart(true);
-      
-      const productToAdd = {
-        id: product.id,
-        quantity: quantity
-      };
-
-      // Add to cart
-      await addToCart(productToAdd);
-
-      // After successful cart addition, update cart
-      window.dispatchEvent(new Event('cart-updated'));
-      
-      // Show success state briefly before navigation
-      setAddedToCart(true);
-      
-      // Navigate after a short delay to show success state
-      setTimeout(() => {
-        router.push('/cart');
-      }, 800);
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      setAuthError('Failed to add item to cart. Please try again.');
-      setIsAddingToCart(false);
-      setAddedToCart(false);
+  const handlePreorder = async () => {
+    setAuthError('');
+    setSizeError(false);
+    setColorError(false);
+    
+    let hasError = false;
+    if (!selectedSize) {
+      setSizeError(true);
+      hasError = true;
     }
+    if (!selectedColor) {
+      setColorError(true);
+      hasError = true;
+    }
+    if (hasError) return;
+
+    const proceedToPreorderPage = () => {
+      setIsSubmittingPreorder(true);
+      const preorderItemDetails = {
+        productId: product.id,
+        name: product.name,
+        image: mainImage, 
+        price: product.price,
+        quantity: quantity,
+        color: selectedColor,
+        size: selectedSize,
+        currency: product.currency,
+        isPreorder: true
+      };
+      sessionStorage.setItem('preorderItemDetails', JSON.stringify(preorderItemDetails));
+      console.log('Proceeding to preorder page with:', preorderItemDetails);
+      router.push('/checkout');
+    };
+
+    if (!checkAuth()) {
+      actionAfterAuth.current = proceedToPreorderPage;
+      setShowAuthDialog(true);
+      return;
+    }
+    proceedToPreorderPage();
+  };
+
+  const handleBuyNow = async () => {
+    setAuthError('');
+    setSizeError(false);
+    setColorError(false);
+
+    let hasError = false;
+    if (!selectedSize) {
+      setSizeError(true);
+      hasError = true;
+    }
+    if (!selectedColor) {
+      setColorError(true);
+      hasError = true;
+    }
+    if (hasError) return;
+
+    const proceedToCheckoutPage = () => {
+      setIsProcessingBuyNow(true);
+      const buyNowItemDetails = {
+        productId: product.id,
+        name: product.name,
+        image: mainImage,
+        price: product.price,
+        quantity: quantity,
+        color: selectedColor,
+        size: selectedSize,
+        currency: product.currency,
+        isPreorder: false // Explicitly not a preorder
+      };
+      sessionStorage.setItem('buyNowItemDetails', JSON.stringify(buyNowItemDetails)); // Use a different key than preorder
+      console.log('Proceeding to checkout page with:', buyNowItemDetails);
+      router.push('/checkout');
+    };
+
+    if (!checkAuth()) {
+      actionAfterAuth.current = proceedToCheckoutPage;
+      setShowAuthDialog(true);
+      return;
+    }
+    proceedToCheckoutPage();
   };
 
   const handleSizeChange = (size) => {
@@ -284,8 +367,19 @@ const ProductDetail = () => {
 
   const handleAuthSuccess = (response) => {
     localStorage.setItem('token', response.token);
+    try {
+      const payload = JSON.parse(atob(response.token.split('.')[1]));
+      const userId = payload.id || payload.userId || payload.sub;
+      setCurrentUser({ id: userId, name: payload.name }); 
+    } catch (error) {
+      console.error('Error parsing token in handleAuthSuccess:', error);
+    }
     setShowAuthDialog(false);
-    handleAddToCart(); // Reuse the main function
+    
+    if (actionAfterAuth.current) {
+      actionAfterAuth.current(); 
+      actionAfterAuth.current = null; 
+    }
   };
 
   const handleReviewSubmit = async (e) => {
@@ -310,7 +404,6 @@ const ProductDetail = () => {
     setReviewError('');
     
     try {
-      // Make sure we have a valid productId
       const productId = params.id;
       if (!productId) {
         throw new Error('Product ID is missing');
@@ -321,14 +414,13 @@ const ProductDetail = () => {
       const reviewData = {
         rating: reviewFormData.rating,
         comment: reviewFormData.content,
-        productId: productId // Ensure this is a string
+        productId: productId
       };
       
       console.log('Review data being sent:', reviewData);
       
       const response = await createReview(reviewData);
       
-      // Add new review to the reviews list
       const newReview = {
         id: response.id,
         rating: response.rating,
@@ -340,17 +432,14 @@ const ProductDetail = () => {
       const updatedReviews = [newReview, ...reviews];
       setReviews(updatedReviews);
       
-      // Recalculate average rating
       const averageRating = calculateAverageRating(updatedReviews);
       setProduct(prevProduct => ({
         ...prevProduct,
         rating: averageRating
       }));
       
-      // Mark that user has reviewed
       setHasUserReviewed(true);
       
-      // Reset form
       setReviewFormData({
         rating: 0,
         content: ''
@@ -382,9 +471,6 @@ const ProductDetail = () => {
           const primaryImage = data.images.find(img => img.isPrimary);
           setMainImage(primaryImage ? primaryImage.imageUrl : imageUrls[0]);
         }
-
-        // We've moved the review fetching to a separate effect
-        // so we don't need to fetch reviews here anymore
 
         if (data.categoryId) {
           try {
@@ -472,7 +558,6 @@ const ProductDetail = () => {
     setHoveredRating(0);
   };
 
-  // Add a separate effect to fetch reviews/rating directly
   useEffect(() => {
     const fetchRatingData = async () => {
       try {
@@ -487,7 +572,6 @@ const ProductDetail = () => {
               rating: averageRating
             }));
             
-            // Check if current user has already submitted a review
             if (currentUser) {
               const userReview = productReviews.find(review => 
                 review.userId === currentUser.id
@@ -505,7 +589,6 @@ const ProductDetail = () => {
 
     fetchRatingData();
     
-    // Set up an interval to refresh rating data periodically (every 30 seconds)
     const intervalId = setInterval(fetchRatingData, 30000);
     
     return () => clearInterval(intervalId);
@@ -516,16 +599,11 @@ const ProductDetail = () => {
       <main className="min-h-screen bg-white dark:bg-white">
         <Header />
         <div className="container mx-auto pt-16 md:pt-20 pb-20 px-4">
-          {/* Shimmer Loading Effect */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-pulse">
-            {/* Shimmer Loading Effect */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-pulse">
-              {/* Product Images Shimmer */}
               <div className="space-y-4">
-                {/* Main Image Shimmer */}
                 <div className="h-[500px] md:h-[650px] bg-gray-200 rounded-md"></div>
                 
-                {/* Thumbnails Shimmer */}
                 <div className="grid grid-cols-4 gap-4">
                   {[...Array(4)].map((_, index) => (
                     <div key={index} className="aspect-square bg-gray-200 rounded-md"></div>
@@ -533,28 +611,21 @@ const ProductDetail = () => {
                 </div>
               </div>
               
-              {/* Product Info Shimmer */}
               <div className="flex flex-col justify-start space-y-6">
-                {/* Title Shimmer */}
                 <div className="h-10 bg-gray-200 rounded-md w-3/4"></div>
                 
-                {/* Rating Shimmer */}
                 <div className="h-5 bg-gray-200 rounded-md w-1/4"></div>
                 
-                {/* Price Shimmer */}
                 <div className="h-8 bg-gray-200 rounded-md w-1/2"></div>
                 
-                {/* Description Shimmer */}
                 <div className="space-y-2">
                   <div className="h-4 bg-gray-200 rounded-md w-full"></div>
                   <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
                   <div className="h-4 bg-gray-200 rounded-md w-4/6"></div>
                 </div>
                 
-                {/* Fabric Info Shimmer */}
                 <div className="h-6 bg-gray-200 rounded-md w-2/5"></div>
                 
-                {/* Size Selection Shimmer */}
                 <div className="space-y-3">
                   <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
                   <div className="flex flex-wrap gap-2">
@@ -564,7 +635,6 @@ const ProductDetail = () => {
                   </div>
                 </div>
                 
-                {/* Color Selection Shimmer */}
                 <div className="space-y-3">
                   <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
                   <div className="flex flex-wrap gap-3">
@@ -574,7 +644,6 @@ const ProductDetail = () => {
                   </div>
                 </div>
                 
-                {/* Quantity Shimmer */}
                 <div className="space-y-3">
                   <div className="h-6 bg-gray-200 rounded-md w-1/4"></div>
                   <div className="flex items-center">
@@ -584,7 +653,6 @@ const ProductDetail = () => {
                   </div>
                 </div>
                 
-                {/* Action Buttons Shimmer */}
                 <div className="space-y-4 w-full">
                   <div className="h-12 bg-gray-200 rounded-md w-full"></div>
                   <div className="h-12 bg-gray-200 rounded-md w-full"></div>
@@ -592,7 +660,6 @@ const ProductDetail = () => {
               </div>
             </div>
             
-            {/* Tab Section Shimmer */}
             <div className="mt-16 border-t border-gray-200 pt-6">
               <div className="flex overflow-x-auto space-x-6 border-b border-gray-200 pb-2">
                 {[...Array(3)].map((_, index) => (
@@ -645,6 +712,8 @@ const ProductDetail = () => {
       </main>
     );
   }
+
+  const isOutOfStock = product?.stockStatus === 'OUT_OF_STOCK';
 
   return (
     <main className="min-h-screen bg-white dark:bg-white">
@@ -716,14 +785,14 @@ const ProductDetail = () => {
                 </div>
               )}
               
-              {product.isNew && (
+              {product.isNew && !isOutOfStock && (
                 <div className="absolute top-4 right-4 z-10">
                   <div className="bg-[#c5a87f] text-white px-4 py-1 text-sm font-medium rounded">
                     NEW
                   </div>
                 </div>
               )}
-              
+
               {thumbnails.length > 1 && (
                 <>
                   <button 
@@ -778,7 +847,12 @@ const ProductDetail = () => {
           <div className="flex flex-col justify-start">
             <h1 className="text-3xl md:text-4xl font-display text-black dark:text-black mb-2">{product.name}</h1>
             
-            {/* Always show rating component - even if rating is 0 */}
+            {isOutOfStock && (
+              <p className="text-xl font-semibold text-red-600 mb-3">
+                Currently Out of Stock
+              </p>
+            )}
+            
             <div className="mb-4">
               <StarRating rating={product.rating} />
             </div>
@@ -1037,17 +1111,19 @@ const ProductDetail = () => {
               <label className="block text-black dark:text-black font-medium mb-2">Quantity</label>
               <div className="flex items-center">
                 <button 
-                  className="w-10 h-10 flex items-center justify-center border border-gray-300 bg-white hover:bg-[#c5a87f] hover:text-white hover:border-[#c5a87f] text-black rounded-l transition-colors"
+                  className="w-10 h-10 flex items-center justify-center border border-gray-300 bg-white hover:bg-[#c5a87f] hover:text-white hover:border-[#c5a87f] text-black rounded-l transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleDecreaseQuantity}
+                  disabled={isOutOfStock || quantity <= 1 || isAddingToCart || isSubmittingPreorder}
                 >
                   −
                 </button>
-                <div className="w-12 h-10 flex items-center justify-center border-t border-b border-gray-300 bg-white text-black">
+                <div className={`w-12 h-10 flex items-center justify-center border-t border-b border-gray-300 text-black ${isOutOfStock ? 'bg-gray-100' : 'bg-white'}`}>
                   {quantity}
                 </div>
                 <button 
-                  className="w-10 h-10 flex items-center justify-center border border-gray-300 bg-white hover:bg-[#c5a87f] hover:text-white hover:border-[#c5a87f] text-black rounded-r transition-colors"
+                  className="w-10 h-10 flex items-center justify-center border border-gray-300 bg-white hover:bg-[#c5a87f] hover:text-white hover:border-[#c5a87f] text-black rounded-r transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleIncreaseQuantity}
+                  disabled={isOutOfStock || isAddingToCart || isSubmittingPreorder}
                 >
                   +
                 </button>
@@ -1055,11 +1131,29 @@ const ProductDetail = () => {
             </div>
             
             <div className="space-y-4">
-              <div className="relative">
-                <button 
-                  className={`w-full py-3 ${addedToCart ? 'bg-green-500' : 'bg-[#1e2832] hover:bg-[#c5a87f]'} text-white font-medium transition-all duration-300 rounded flex items-center justify-center ${isAddingToCart ? 'cursor-wait' : ''}`}
+              {isOutOfStock ? (
+                <button
+                  onClick={handlePreorder}
+                  disabled={isSubmittingPreorder || !selectedSize || !selectedColor}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium transition-all duration-300 rounded flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingPreorder ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing Preorder...
+                    </>
+                  ) : (
+                    'Preorder Now'
+                  )}
+                </button>
+              ) : (
+                <button
+                  className={`w-full py-3 ${addedToCart ? 'bg-green-500 cursor-default' : (!selectedSize || !selectedColor) ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed' : 'bg-[#1e2832] hover:bg-[#c5a87f]'} text-white font-medium transition-all duration-300 rounded flex items-center justify-center ${isAddingToCart ? 'cursor-wait' : ''}`}
                   onClick={handleAddToCart}
-                  disabled={isAddingToCart || addedToCart}
+                  disabled={isAddingToCart || addedToCart || !selectedSize || !selectedColor}
                 >
                   {addedToCart ? (
                     <div className="flex items-center justify-center space-x-2">
@@ -1079,13 +1173,33 @@ const ProductDetail = () => {
                     </>
                   )}
                 </button>
-                {authError && (
-                  <p className="text-red-500 text-sm mt-2 text-center">{authError}</p>
-                )}
-              </div>
-              
-
+              )}
+              {authError && (
+                <p className="text-red-500 text-sm mt-2 text-center">{authError}</p>
+              )}
             </div>
+            
+            {!isOutOfStock && (
+              <div className="mt-4">
+                <button
+                  onClick={handleBuyNow}
+                  disabled={isProcessingBuyNow || !selectedSize || !selectedColor || isAddingToCart}
+                  className="w-full py-3 bg-[#c5a87f] hover:bg-[#b39770] text-white font-medium transition-all duration-300 rounded flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isProcessingBuyNow ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    'Buy Now'
+                  )}
+                </button>
+              </div>
+            )}
             
             <div className="mt-8 border-t border-gray-200 pt-6">
               <h3 className="text-lg font-display mb-3 text-black">Other Information</h3>

@@ -19,7 +19,7 @@ const CategorySection = ({ categories }) => {
         <h3 className={`font-display ${mobileTitleSize || titleSize} md:${titleSize} text-white mb-4`}>{category.name}</h3>
         
         <Link 
-          href={`/products?category=${category.id || category.name.toLowerCase().replace(/ /g, '-')}`}
+          href={`/products?category=${category.id}`}
           className={`inline-block px-6 py-2 bg-white text-black font-medium ${buttonSize} uppercase tracking-widest transition-colors group-hover:bg-[#d4b78f] group-hover:text-white`}
         >
           EXPLORE

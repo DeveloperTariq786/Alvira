@@ -212,20 +212,35 @@ const BestsellersSection = () => {
     return 'https://via.placeholder.com/300x300';
   };
 
+  // Consistent Header Component
+  const SectionHeader = () => (
+    <div className="flex flex-col items-center mb-16 relative">
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-[#d4b78f] blur-xl opacity-60"></div>
+      <h2 className="font-display text-4xl md:text-5xl text-white mb-4 text-center">
+        {title}
+      </h2>
+      <div className="w-20 h-1 bg-[#d4b78f] mb-4"></div>
+      <p className="text-gray-300 max-w-2xl text-center text-base md:text-lg">
+        {description}
+      </p>
+    </div>
+  );
+
   if (loading) {
     return (
-      <section id="bestsellers" className="relative py-24 bg-black">
+      <section id="bestsellers" className="relative py-24 bg-gradient-to-r from-[#1a1a1a] to-[#2d2d2d] text-white overflow-hidden">
+        {/* Pattern overlay */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0" 
+            style={{
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+              backgroundSize: '20px'
+            }}
+          ></div>
+        </div>
+
         <div className="container mx-auto max-w-6xl px-4 relative z-10">
-          <div className="flex flex-col items-center mb-16 relative">
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-[#d4b78f] blur-xl opacity-60"></div>
-            <h2 className="font-display text-4xl md:text-5xl text-white mb-4 text-center">
-              {title}
-            </h2>
-            <div className="w-20 h-1 bg-[#d4b78f] mb-4"></div>
-            <p className="text-gray-300 max-w-2xl text-center text-base md:text-lg">
-              {description}
-            </p>
-          </div>
+          <SectionHeader />
           
           <div className="flex justify-center items-center h-[500px]">
             <div className="animate-pulse flex flex-col items-center space-y-8">
@@ -245,21 +260,26 @@ const BestsellersSection = () => {
 
   if (error && items.length === 0) {
     return (
-      <section id="bestsellers" className="relative py-24 bg-black">
+      <section id="bestsellers" className="relative py-24 bg-gradient-to-r from-[#1a1a1a] to-[#2d2d2d] text-white overflow-hidden">
+        {/* Pattern overlay */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0" 
+            style={{
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+              backgroundSize: '20px'
+            }}
+          ></div>
+        </div>
+
         <div className="container mx-auto max-w-6xl px-4 relative z-10">
-          <div className="flex flex-col items-center mb-16 relative">
-            <h2 className="font-display text-4xl md:text-5xl text-white mb-4 text-center">
-              {title}
-            </h2>
-            <div className="w-20 h-1 bg-[#d4b78f] mb-4"></div>
-          </div>
+          <SectionHeader />
           
           <div className="flex justify-center items-center h-[300px]">
             <div className="text-center text-white">
               <p className="mb-4">Unable to load best selling products. {error}</p>
               <button 
                 onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-[#d4b78f] text-black rounded-md"
+                className="px-4 py-2 bg-[#d4b78f] text-black rounded-md hover:bg-white transition-colors"
               >
                 Retry
               </button>
@@ -280,7 +300,7 @@ const BestsellersSection = () => {
   const imageUrl = getPrimaryImageUrl(activeProduct);
 
   return (
-    <section className="relative py-20 overflow-hidden bg-gradient-to-r from-[#1a1a1a] to-[#2d2d2d] text-white">
+    <section className="relative py-24 overflow-hidden bg-gradient-to-r from-[#1a1a1a] to-[#2d2d2d] text-white">
       {/* Pattern overlay */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" 
@@ -292,73 +312,17 @@ const BestsellersSection = () => {
       </div>
 
       <div className="container mx-auto max-w-6xl px-4 relative z-10">
-        {/* Heading section with gold accent */}
-        <div className="flex flex-col items-center mb-16 relative">
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-[#d4b78f] blur-xl opacity-60"></div>
-          <h2 className="font-display text-4xl md:text-5xl text-white mb-4 text-center">
-            {title}
-          </h2>
-          <div className="w-20 h-1 bg-[#d4b78f] mb-4"></div>
-          <p className="text-gray-300 max-w-2xl text-center text-base md:text-lg">
-            {description}
-          </p>
-        </div>
+        <SectionHeader />
 
-        {/* Circular showcase */}
-        <div className="relative h-[500px] md:h-[600px]">
-          {/* The circular track */}
-          <div className="hidden md:block absolute left-1/2 top-1/2 w-[550px] h-[550px] rounded-full border border-[#d4b78f]/20 transform -translate-x-1/2 -translate-y-1/2"></div>
-          
-          {/* Products positioned in circular formation for desktop */}
-          <div className="hidden md:block">
-            {items.map((item, index) => {
-              // Calculate position on circle
-              const isActive = index === activeIndex;
-              const angle = ((2 * Math.PI) / items.length) * index - Math.PI / 2;
-              const radius = 250; // Circle radius
-              const x = Math.cos(angle) * radius;
-              const y = Math.sin(angle) * radius;
-              
-              return (
-                <div
-                  key={item.id}
-                  className={`absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out ${
-                    isActive ? 'scale-110 z-20' : 'scale-90 opacity-60 z-10'
-                  }`}
-                  style={{
-                    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${isActive ? 1.1 : 0.9})`,
-                  }}
-                >
-                  <div 
-                    className={`w-40 h-40 rounded-full bg-cover bg-center cursor-pointer ring-4 ${
-                      isActive ? 'ring-[#d4b78f]' : 'ring-white/30'
-                    } relative group`} 
-                    style={{ backgroundImage: `url(${getPrimaryImageUrl(item)})` }}
-                    onClick={() => setActiveIndex(index)}
-                  >
-                    {/* Quick view overlay */}
-                    <div 
-                      className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                      onClick={(e) => openImageModal(getPrimaryImageUrl(item), e)}
-                    >
-                      <div className="bg-white/90 text-black text-xs px-2 py-1 rounded-full font-medium">
-                        Quick View
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Mobile carousel view */}
-          <div className="block md:hidden">
+        <div className="relative"> 
+          {/* Carousel view (now universal) - Made relative for arrow positioning */}
+          <div className="block relative">
             <div className="flex justify-center mb-8">
               <div 
-                className="w-56 h-56 rounded-full bg-cover bg-center ring-4 ring-[#d4b78f] relative group" 
+                className="w-56 h-56 md:w-72 md:h-72 rounded-full bg-cover bg-center ring-4 ring-[#d4b78f] relative group"
                 style={{ backgroundImage: `url(${getPrimaryImageUrl(items[activeIndex])})` }}
               >
-                {/* Quick view overlay for mobile */}
+                {/* Quick view overlay */}
                 <div 
                   className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 flex items-center justify-center transition-opacity"
                   onClick={(e) => openImageModal(getPrimaryImageUrl(items[activeIndex]), e)}
@@ -374,55 +338,59 @@ const BestsellersSection = () => {
                 <button 
                   key={index}
                   onClick={() => setActiveIndex(index)}
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-2 h-2 rounded-full transition-colors ${
                     index === activeIndex ? 'bg-[#d4b78f]' : 'bg-white/40'
                   }`}
                 ></button>
               ))}
             </div>
+
+            {/* Navigation arrows - Moved inside the relative block */}
+            <button
+              onClick={prevItem}
+              className="absolute left-4 md:left-8 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-[#d4b78f] text-white flex items-center justify-center transition-colors"
+              aria-label="Previous product"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={nextItem}
+              className="absolute right-4 md:right-8 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-[#d4b78f] text-white flex items-center justify-center transition-colors"
+              aria-label="Next product"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
 
-          {/* Featured product details - centered */}
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center w-64">
-            <div className="bg-black/60 backdrop-blur-sm p-4 rounded-xl">
-              <h3 className="font-display text-xl text-white mb-1">
-                {activeProduct.name}
-              </h3>
-              <div className="flex justify-center my-1">
-                <StarRating rating={rating} />
+          {/* Featured product details - now flows below */}
+          <div className="flex justify-center">
+            <div className="text-center w-full max-w-sm md:max-w-sm">
+              <div className="bg-black/60 backdrop-blur-sm p-6 md:p-6 rounded-xl">
+                <h3 className="font-display text-2xl md:text-2xl text-white mb-3">
+                  {activeProduct.name}
+                </h3>
+                <div className="flex justify-center mb-3">
+                  <StarRating rating={rating} />
+                </div>
+                <div className="text-[#d4b78f] font-medium text-lg md:text-lg mb-3">
+                  {activeProduct.currency}{activeProduct.price.toLocaleString()}
+                </div>
+                <div className="text-[#d4b78f]/80 text-base md:text-base mb-6">
+                  {activeProduct.stock}
+                </div>
+                <Link 
+                  href={`/products/${activeProduct.id}`} 
+                  className="block w-full py-3 bg-[#d4b78f] text-black text-base md:text-base font-medium hover:bg-white transition-colors rounded-md"
+                >
+                  Shop Now
+                </Link>
               </div>
-              <div className="text-[#d4b78f] font-medium mb-1">
-                {activeProduct.currency}{activeProduct.price.toLocaleString()}
-              </div>
-              <div className="text-[#d4b78f]/80 text-sm mb-4">
-                {activeProduct.stock}
-              </div>
-              <Link 
-                href={`/products/${activeProduct.id}`} 
-                className="block w-full py-2 bg-[#d4b78f] text-black text-sm font-medium hover:bg-white transition-colors rounded-md"
-              >
-                Shop Now
-              </Link>
             </div>
           </div>
-
-          {/* Navigation arrows */}
-          <button
-            onClick={prevItem}
-            className="absolute left-4 md:left-8 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-[#d4b78f] text-white flex items-center justify-center transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            onClick={nextItem}
-            className="absolute right-4 md:right-8 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-[#d4b78f] text-white flex items-center justify-center transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -462,8 +430,9 @@ const BestsellersSection = () => {
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 p-2 rounded-full">
               <button 
                 onClick={zoomOut}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-50"
                 disabled={scale <= 0.5}
+                aria-label="Zoom out"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -471,7 +440,8 @@ const BestsellersSection = () => {
               </button>
               <button 
                 onClick={resetZoom}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Reset zoom"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
@@ -479,8 +449,9 @@ const BestsellersSection = () => {
               </button>
               <button 
                 onClick={zoomIn}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-50"
                 disabled={scale >= 4}
+                aria-label="Zoom in"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -515,4 +486,4 @@ const BestsellersSection = () => {
   );
 };
 
-export default BestsellersSection; 
+export default BestsellersSection;

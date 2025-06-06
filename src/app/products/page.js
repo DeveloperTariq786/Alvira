@@ -39,12 +39,8 @@ const ProductsContent = () => {
         const filters = {};
     
     if (categoryParam) {
-          // Remove 'cat-' prefix if it exists
-          const cleanCategory = categoryParam.startsWith('cat-') 
-            ? categoryParam.substring(4) 
-            : categoryParam;
-          filters.category = cleanCategory;
-          setCategory(cleanCategory);
+          filters.category = categoryParam;
+          setCategory(categoryParam);
         } else {
           setCategory('all');
         }
@@ -84,11 +80,10 @@ const ProductsContent = () => {
         const fallbackProducts = [...newArrivalsProducts, ...bestsellers.items];
         
         if (categoryParam) {
-          // Filter fallback products by the category from URL
+          // Filter fallback products by the category ID
           const filtered = fallbackProducts.filter(product => 
-        product.category === categoryParam || 
-        (product.tags && product.tags.includes(categoryParam))
-      );
+            product.category?.id === categoryParam
+          );
       setProducts(filtered);
       setFilteredProducts(filtered);
     } else {
@@ -161,25 +156,10 @@ const ProductsContent = () => {
   }, [products, showNewOnly, minRating, priceRange, sortOption, selectedFabric, showDiscountedOnly]);
 
   // Format category name for display
-  const formatCategoryName = (category) => {
-    if (!category || category === 'all') return 'All Products';
-    
-    // If the category starts with "cat-", it's a category ID from the database
-    if (category.startsWith('cat-')) {
-      // Remove the "cat-" prefix
-      const nameWithoutPrefix = category.substring(4);
-      
-      // Format the remaining part as a readable name
-      return nameWithoutPrefix
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    }
-    
-    // For regular category slugs or names
-    return category.split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  const formatCategoryName = (categoryParam) => {
+    if (!categoryParam || categoryParam === 'all') return 'All Products';
+    const category = products.find(p => p.category?.id === categoryParam)?.category;
+    return category?.name || 'All Products';
   };
 
   // Handle price range change

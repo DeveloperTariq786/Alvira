@@ -51,15 +51,8 @@ const PhoneVerification = ({ onSuccess, onCancel, initialData = {} }) => {
       }
 
       if (checkResponse.exists) {
-        if (checkResponse.isVerified) {
-          // Handle case where user is already verified - maybe show message?
-          setError('This phone number is already verified.');
-          setLoading(false);
-          return; // Or potentially proceed to OTP verification if login is intended
-        } else {
-          // User exists but not verified, resend OTP
-          apiResponse = await resendOTP(formData.phone);
-        }
+        // User exists, whether verified or not, resend OTP for login/re-verification
+        apiResponse = await resendOTP(formData.phone);
       } else {
         // User does not exist, create user (which sends OTP)
         apiResponse = await createUser({

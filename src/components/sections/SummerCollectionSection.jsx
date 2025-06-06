@@ -3,36 +3,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 const SummerCollectionSection = ({ collection }) => {
-  if (!collection) return null;
-  // Handle both legacy string category and new category object format
+  if (!collection) return null;  // Get category ID for consistent parameter handling
   const getCategoryParam = () => {
     if (!collection.category) {
       return '';
     }
-    
-    // If category is an object (new format), use its id or name
-    if (typeof collection.category === 'object') {
-      if (collection.category.id) {
-        return collection.category.id;
-      } else if (collection.category.name) {
-        return collection.category.name.toLowerCase().replace(/ /g, '-');
-      }
-    }
-    
-    // If category is a string (old format), remove any 'cat-' prefix first
-    if (typeof collection.category === 'string') {
-      const cleanCategory = collection.category.startsWith('cat-') 
-        ? collection.category.substring(4)
-        : collection.category;
-      return cleanCategory.toLowerCase().replace(/ /g, '-');
-    }
-    
-    // If categoryId is available directly
-    if (collection.categoryId) {
-      return collection.categoryId;
-    }
-    
-    return '';
+    return collection.category.id || '';
   };
   
   const categoryParam = getCategoryParam();

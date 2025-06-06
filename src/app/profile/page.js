@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Products } from '@/constants/data';
 import { 
   getCart, 
@@ -19,6 +20,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 
 const ProfilePage = () => {
+  const router = useRouter();
   // User data state
   const [userData, setUserData] = useState({
     name: '',
@@ -231,6 +233,7 @@ const ProfilePage = () => {
         setShowAddressForm(false);
         setIsEditingAddress(false);
         setEditingAddressId(null);
+        router.back();
         
       } catch (err) {
         console.error('Error adding/updating address:', err);

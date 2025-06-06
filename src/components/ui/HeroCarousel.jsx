@@ -37,13 +37,12 @@ const HeroCarousel = ({ slides }) => {
   };
 
   const handleButtonClick = (slide) => {
-    let categoryParam;
-    if (typeof slide === 'string') {
-      categoryParam = `cat-${slide}`;
-    } else {
-      categoryParam = slide.categoryId || (slide.id && slide.category === 'category' ? `cat-${slide.id}` : `cat-${slide.category}`);
+    if (!slide) return;
+    // Use the standard category.id format
+    const categoryId = slide.category?.id || slide.categoryId;
+    if (categoryId) {
+      router.push(`/products?category=${categoryId}`);
     }
-    router.push(`/products?category=${categoryParam}`);
   };
 
   const handleTouchStart = (e) => {

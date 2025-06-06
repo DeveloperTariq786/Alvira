@@ -312,17 +312,6 @@ const CheckoutPage = () => {
         }
       `}</style>
       <div className="container mx-auto px-4 py-8 mt-16">
-        {cartItems.length === 0 ? (
-          <div className="text-center py-16 max-w-md mx-auto">
-            <h2 className="text-3xl font-display mb-4 text-black">Your Cart is Empty</h2>
-            <p className="text-gray-600 mb-8">You need to add items to your cart before checkout.</p>
-            <Link href="/products">
-              <button className="px-8 py-3 font-medium text-center transition-colors duration-200 rounded-md bg-[#c5a87f] text-white hover:bg-[#b39770]">
-                Browse Products
-              </button>
-            </Link>
-          </div>
-        ) : (
           <div className="mb-16">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Column - Address Selection */}
@@ -554,7 +543,6 @@ const CheckoutPage = () => {
               </div>
             </div>
           </div>
-        )}
       </div>
       
       <Footer />

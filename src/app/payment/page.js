@@ -19,7 +19,7 @@ const PaymentPage = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [orderId, setOrderId] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('cod'); // cod or online
+  const [paymentMethod, setPaymentMethod] = useState('online'); // cod or online
 
   useEffect(() => {
     // Load Razorpay script
@@ -485,16 +485,6 @@ const PaymentPage = () => {
       <div className="container mx-auto px-4 py-6 mt-16 sm:py-8">
         {loading ? (
           <LoadingState message="Processing your payment..." />
-        ) : cartItems.length === 0 ? (
-          <div className="text-center py-12 max-w-md mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-display mb-4 text-black">Your Cart is Empty</h2>
-            <p className="text-gray-600 mb-6 sm:mb-8">You need to add items to your cart before payment.</p>
-            <Link href="/products">
-              <button className="px-6 sm:px-8 py-3 font-medium text-center transition-colors duration-200 rounded-md bg-[#1e2832] text-white hover:bg-[#2a3642]">
-                Browse Products
-              </button>
-            </Link>
-          </div>
         ) : (
           <div className="mb-12 sm:mb-16">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
@@ -509,33 +499,24 @@ const PaymentPage = () => {
                     <div className="payment-method-container">
                       {/* Cash on Delivery Option */}
                       <div 
-                        className={`payment-option border p-1 cursor-pointer ${
+                        className={`payment-option border p-1 cursor-not-allowed opacity-50 ${
                           paymentMethod === 'cod' 
                             ? 'selected border-[#1e2832] bg-[#f9f9f9]' 
                             : 'border-gray-200'
                         }`}
-                        onClick={() => handlePaymentMethodChange('cod')}
+                        onClick={() => {}} // Prevent selection
+                        title="Cash on Delivery is currently unavailable"
                       >
-                        <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center justify-center p-4">
                           <div className="flex items-center">
-                            <span className="payment-amount mr-4">₹{total}</span>
-                            <div className="flex items-center">
-                              <span className="mr-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e2832" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect x="2" y="4" width="20" height="16" rx="2" />
-                                  <circle cx="12" cy="12" r="2" />
-                                  <path d="M6 12h.01M18 12h.01" />
-                                </svg>
-                              </span>
-                              <span className="font-medium payment-label">Cash on Delivery</span>
-                            </div>
-                          </div>
-                          <div className={`radio-custom ${paymentMethod === 'cod' ? 'selected' : ''}`}>
-                            {paymentMethod === 'cod' && (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12"></polyline>
+                            <span className="mr-3">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e2832" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="2" y="4" width="20" height="16" rx="2" />
+                                <circle cx="12" cy="12" r="2" />
+                                <path d="M6 12h.01M18 12h.01" />
                               </svg>
-                            )}
+                            </span>
+                            <span className="font-medium payment-label">COD not available - Coming soon</span>
                           </div>
                         </div>
                       </div>
