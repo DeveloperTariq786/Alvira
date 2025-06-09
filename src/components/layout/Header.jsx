@@ -3,39 +3,29 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getCartItems } from '@/utils/cart';
+import useCartStore from '@/store/cart';
 import PhoneVerification from '@/components/ui/PhoneVerification';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [cartItemCount, setCartItemCount] = useState(0);
+  const { items: cartItems, fetchCart } = useCartStore();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+
   useEffect(() => {
-    const updateCartCount = async () => {
-      try {
-        const items = await getCartItems();
-        const count = items.reduce((total, item) => total + item.quantity, 0);
-        setCartItemCount(count);
-      } catch (error) {
-        console.error('Error updating cart count:', error);
-        setCartItemCount(0);
-      }
-    };
+    fetchCart();
+  }, [fetchCart]);
 
-    // Initial count
-    updateCartCount();
-
+  useEffect(() => {
     // Check authentication status
     checkAuth();
 
-    // Listen for cart update events
-    window.addEventListener('cart-updated', updateCartCount);
+    // Listen for auth update events
     window.addEventListener('auth-updated', checkAuth);
     
     return () => {
-      window.removeEventListener('cart-updated', updateCartCount);
       window.removeEventListener('auth-updated', checkAuth);
     };
   }, []);

@@ -1,168 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getCartItems, updateCartItemQuantity, removeFromCart } from '@/utils/cart';
+import useCartStore from '@/store/cart'; // Import the Zustand store
 import { calculateTotalPrice } from '@/utils/priceCalculations';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import LoadingState from '@/components/ui/LoadingState';
 
 const CartPage = () => {
-  const [cartItems, setCartItems] = useState([]);
+  const { items: cartItems, loading, fetchCart, updateQuantity, removeFromCart } = useCartStore();
   const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
   const [taxes, setTaxes] = useState(0);
   const [shipping, setShipping] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [pendingUpdates, setPendingUpdates] = useState({
-    items: {},
-    checkout: false
-  });
 
   useEffect(() => {
-    const fetchCartItems = async () => {
-      try {
-        const items = await getCartItems();
-        setCartItems(Array.isArray(items) ? items : []);
-        calculateTotal(Array.isArray(items) ? items : []);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching cart items:', error);
-        setCartItems([]);
-        calculateTotal([]);
-        setLoading(false);
+    fetchCart();
+  }, [fetchCart]);
+
+  useEffect(() => {
+    const calculateTotal = (items) => {
+      if (!Array.isArray(items)) {
+        setTotal(0);
+        setTaxes(0);
+        setSubtotal(0);
+        setShipping(0);
+        return;
       }
+  
+      const subtotalAmount = items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+      const { tax, shipping, total } = calculateTotalPrice(subtotalAmount);
+  
+      setSubtotal(subtotalAmount);
+      setTaxes(tax);
+      setShipping(shipping);
+      setTotal(total);
     };
 
-    fetchCartItems();
-
-    // Listen for cart updates
-    const handleCartUpdate = async () => {
-      try {
-        const items = await getCartItems();
-        setCartItems(Array.isArray(items) ? items : []);
-        calculateTotal(Array.isArray(items) ? items : []);
-        // Clear any pending updates after a successful fetch
-        setPendingUpdates({ items: {}, checkout: false });
-      } catch (error) {
-        console.error('Error updating cart:', error);
-      }
-    };
-
-    window.addEventListener('cart-updated', handleCartUpdate);
-    return () => {
-      window.removeEventListener('cart-updated', handleCartUpdate);
-    };
-  }, []);
-
-  const calculateTotal = (items) => {
-    if (!Array.isArray(items)) {
-      console.error('Items is not an array:', items);
-      setTotal(0);
-      setTaxes(0);
-      setSubtotal(0);
-      setShipping(0);
-      return;
-    }
-
-    const subtotalAmount = items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
-    const { tax, shipping, total } = calculateTotalPrice(subtotalAmount);
-
-    setSubtotal(subtotalAmount);
-    setTaxes(tax);
-    setShipping(shipping);
-    setTotal(total);
-  };
-
-  const updateQuantity = async (id, newQuantity) => {
-    if (newQuantity < 1) return;
-    
-    // Apply optimistic update
-    const updatedItems = cartItems.map(item => 
-      item.productId === id ? { ...item, quantity: newQuantity } : item
-    );
-    
-    setCartItems(updatedItems);
-    calculateTotal(updatedItems);
-    
-    // Track pending update only for this specific item
-    setPendingUpdates(prev => ({
-      ...prev,
-      items: { ...prev.items, [id]: true }
-    }));
-    
-    try {
-      // Make the API call in the background
-      await updateCartItemQuantity(id, newQuantity);
-      // Clear this specific pending update
-      setPendingUpdates(prev => ({
-        ...prev,
-        items: Object.fromEntries(
-          Object.entries(prev.items).filter(([key]) => key !== id)
-        )
-      }));
-    } catch (error) {
-      console.error('Error updating quantity:', error);
-      // If the API call fails, you might want to revert the optimistic update
-      // by fetching the latest cart data
-      try {
-        const items = await getCartItems();
-        setCartItems(Array.isArray(items) ? items : []);
-        calculateTotal(Array.isArray(items) ? items : []);
-        setPendingUpdates(prev => ({
-          ...prev,
-          items: Object.fromEntries(
-            Object.entries(prev.items).filter(([key]) => key !== id)
-          )
-        }));
-      } catch (fetchError) {
-        console.error('Error fetching cart after failed update:', fetchError);
-      }
-    }
-  };
-
-  const removeItem = async (id) => {
-    // Apply optimistic update for removal
-    const filteredItems = cartItems.filter(item => item.productId !== id);
-    setCartItems(filteredItems);
-    calculateTotal(filteredItems);
-    
-    // Track pending update only for this specific item
-    setPendingUpdates(prev => ({
-      ...prev,
-      items: { ...prev.items, [id]: true }
-    }));
-    
-    try {
-      // Make the API call in the background
-      await removeFromCart(id);
-      // Clear this specific pending update
-      setPendingUpdates(prev => ({
-        ...prev,
-        items: Object.fromEntries(
-          Object.entries(prev.items).filter(([key]) => key !== id)
-        )
-      }));
-    } catch (error) {
-      console.error('Error removing item:', error);
-      // If the API call fails, revert the optimistic update
-      try {
-        const items = await getCartItems();
-        setCartItems(Array.isArray(items) ? items : []);
-        calculateTotal(Array.isArray(items) ? items : []);
-        setPendingUpdates(prev => ({
-          ...prev,
-          items: Object.fromEntries(
-            Object.entries(prev.items).filter(([key]) => key !== id)
-          )
-        }));
-      } catch (fetchError) {
-        console.error('Error fetching cart after failed removal:', fetchError);
-      }
-    }
-  };
+    calculateTotal(cartItems);
+  }, [cartItems]);
 
   if (loading) {
     return (
@@ -199,9 +77,8 @@ const CartPage = () => {
               <div className="lg:col-span-2">
                 <div className="space-y-6">
                   {cartItems.map((item) => {
-                    const isPending = pendingUpdates.items[item.productId];
                     return (
-                      <div key={item.productId} className="flex space-x-4 pb-6 border-b border-gray-100">                        {/* Product Image */}
+                      <div key={item.productId} className="flex space-x-4 pb-6 border-b border-gray-100">
                         <div className="w-24 h-24 bg-gray-50 relative flex-shrink-0">
                           <Image
                             src={item.image || 'https://via.placeholder.com/100x100'}
@@ -211,7 +88,6 @@ const CartPage = () => {
                           />
                         </div>
                         
-                        {/* Product Details */}
                         <div className="flex-1">
                           <div className="flex justify-between">
                             <h3 className="font-display text-lg text-[#1e2832]">{item.name}</h3>
@@ -240,7 +116,7 @@ const CartPage = () => {
                             </div>
                             
                             <button 
-                              onClick={() => removeItem(item.productId)}
+                              onClick={() => removeFromCart(item.productId)}
                               className="text-red-500 text-sm font-medium hover:text-red-700"
                             >
                               Remove
@@ -252,52 +128,42 @@ const CartPage = () => {
                   })}
                 </div>
               </div>
-
+              
               {/* Order Summary */}
               <div className="lg:col-span-1">
-                <div className="bg-gray-50 p-6 rounded-md shadow-sm border border-gray-100">
-                  <h2 className="text-xl font-display mb-6 text-[#1e2832]">Order Summary</h2>
+                <div className="bg-[#fcfaf7] p-6 sticky top-20 rounded-md">
+                  <h2 className="text-xl font-display text-[#1e2832] mb-6">Order Summary</h2>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subtotal</span>
                       <span className="font-medium text-[#1e2832]">₹{subtotal.toLocaleString()}</span>
                     </div>
-                      <div className="flex justify-between">
-                      <span className="text-gray-600">Delivery Charges</span>
-                      <span className="text-green-600 font-medium">Free</span>
-                    </div>
-                    
                     <div className="flex justify-between">
                       <span className="text-gray-600">Taxes</span>
                       <span className="font-medium text-[#1e2832]">₹{taxes.toLocaleString()}</span>
                     </div>
-                    
-                    <div className="border-t border-gray-200 pt-4 mt-4">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-[#1e2832]">Total</span>
-                        <span className="font-medium text-[#1e2832]">₹{total.toLocaleString()}</span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Shipping</span>
+                      <span className="font-medium text-[#1e2832]">₹{shipping.toLocaleString()}</span>
                     </div>
                   </div>
                   
-                  <div className="mt-8">
-                    <Link href="/checkout">
-                      <button 
-                        className="w-full py-3 bg-[#1e2832] text-white font-medium text-center rounded hover:bg-[#323b44]"
-                      >
-                        Proceed to Checkout
-                      </button>
-                    </Link>
-                    
-                    <div className="mt-8"></div>
-                    
-                    <Link href="/products">
-                      <button className="w-full py-3 border border-gray-300 bg-white text-[#1e2832] font-medium text-center rounded hover:bg-gray-50">
-                        Continue Shopping
-                      </button>
-                    </Link>
+                  <div className="border-t my-6"></div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-display text-[#1e2832]">Total</span>
+                    <span className="text-2xl font-bold text-[#1e2832]">₹{total.toLocaleString()}</span>
                   </div>
+                  
+                  <Link href="/checkout">
+                    <button 
+                      className="w-full mt-6 py-3 font-medium text-center transition-colors duration-200 rounded-md bg-[#c5a87f] text-white hover:bg-[#b39770] disabled:bg-gray-400"
+                      disabled={cartItems.length === 0}
+                    >
+                      Proceed to Checkout
+                    </button>
+                  </Link>
                 </div>
               </div>
             </div>

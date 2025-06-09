@@ -6,7 +6,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Link from 'next/link';
 import LoadingState from '@/components/ui/LoadingState';
-import { addToCart } from '@/utils/cart';
+import useCartStore from '@/store/cart'; // Import the Zustand store
 import { fetchProductById, fetchProducts, createUser, verifyPhone, resendOTP, createReview, fetchProductReviews, calculateAverageRating } from '@/utils/api';
 import Image from 'next/image';
 import PhoneVerification from '@/components/ui/PhoneVerification';
@@ -15,6 +15,7 @@ import ProductCard from '@/components/ui/ProductCard';
 const ProductDetail = () => {
   const params = useParams();
   const router = useRouter();
+  const { addToCart } = useCartStore(); // Use the Zustand store
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mainImage, setMainImage] = useState(null);
@@ -59,6 +60,71 @@ const ProductDetail = () => {
   const [isSubmittingPreorder, setIsSubmittingPreorder] = useState(false);
   const [isProcessingBuyNow, setIsProcessingBuyNow] = useState(false);
   const actionAfterAuth = useRef(null);
+
+  useEffect(() => {
+    const fetchProductAndReviews = async () => {
+      if (!params.id) return;
+
+      setLoading(true);
+      try {
+        const [productData, reviewsData] = await Promise.all([
+          fetchProductById(params.id),
+          fetchProductReviews(params.id),
+        ]);
+
+        let finalProduct = { ...productData };
+        if (reviewsData && reviewsData.length > 0) {
+          finalProduct.rating = calculateAverageRating(reviewsData);
+        }
+
+        setProduct(finalProduct);
+        setReviews(reviewsData || []);
+
+        if (productData.images && productData.images.length > 0) {
+          const imageUrls = productData.images.map((img) => img.imageUrl);
+          setThumbnails(imageUrls);
+          const primaryImage = productData.images.find((img) => img.isPrimary);
+          setMainImage(primaryImage ? primaryImage.imageUrl : imageUrls[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching product and reviews:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProductAndReviews();
+  }, [params.id]);
+
+  useEffect(() => {
+    const fetchSimilarProducts = async () => {
+      if (product?.categoryId) {
+        try {
+          const similar = await fetchProducts({
+            category: product.categoryId,
+            limit: 4,
+            exclude: product.id,
+          });
+          setSimilarProducts(similar);
+        } catch (error) {
+          console.error('Error fetching similar products:', error);
+        }
+      }
+    };
+
+    if (product) {
+      fetchSimilarProducts();
+    }
+  }, [product]);
+
+  useEffect(() => {
+    if (currentUser && reviews.length > 0) {
+      const userHasReviewed = reviews.some(review => review.userId === currentUser.id || (review.author && review.author === currentUser.name));
+      setHasUserReviewed(userHasReviewed);
+    } else {
+      setHasUserReviewed(false);
+    }
+  }, [currentUser, reviews]);
 
   const checkAuth = () => {
     const token = localStorage.getItem('token');
@@ -213,7 +279,7 @@ const ProductDetail = () => {
     );
   };
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = () => {
     setSizeError(false);
     setColorError(false);
     setAuthError('');
@@ -234,35 +300,29 @@ const ProductDetail = () => {
     }
     if (hasError) return;
 
-    const executeActualAddToCart = async () => {
-      try {
-        setIsAddingToCart(true);
+    const executeActualAddToCart = () => {
         const productToAdd = {
           id: product.id,
+          name: product.name,
+          price: product.price,
+          image: mainImage,
           quantity: quantity
         };
-        await addToCart(productToAdd);
-        window.dispatchEvent(new Event('cart-updated'));
+        addToCart(productToAdd);
         setAddedToCart(true);
+        setCartAnimation(true);
         setTimeout(() => {
           router.push('/cart');
         }, 800);
-      } catch (error) {
-        console.error('Error adding to cart:', error);
-        setAuthError('Failed to add item to cart. Please try again.');
-        setIsAddingToCart(false);
-        setAddedToCart(false);
-      } finally {
-        if (isAddingToCart) setIsAddingToCart(false);
-      }
     };
 
     if (!checkAuth()) {
-      actionAfterAuth.current = executeActualAddToCart;
       setShowAuthDialog(true);
+      actionAfterAuth.current = executeActualAddToCart;
       return;
     }
-    await executeActualAddToCart();
+
+    executeActualAddToCart();
   };
 
   const handlePreorder = async () => {
@@ -334,9 +394,9 @@ const ProductDetail = () => {
         color: selectedColor,
         size: selectedSize,
         currency: product.currency,
-        isPreorder: false // Explicitly not a preorder
+        isPreorder: false
       };
-      sessionStorage.setItem('buyNowItemDetails', JSON.stringify(buyNowItemDetails)); // Use a different key than preorder
+      sessionStorage.setItem('buyNowItemDetails', JSON.stringify(buyNowItemDetails));
       console.log('Proceeding to checkout page with:', buyNowItemDetails);
       router.push('/checkout');
     };
@@ -459,45 +519,6 @@ const ProductDetail = () => {
   };
 
   useEffect(() => {
-    const fetchProductData = async () => {
-      try {
-        const productId = params.id;
-        const data = await fetchProductById(productId);
-        setProduct(data);
-
-        if (data.images && data.images.length > 0) {
-          const imageUrls = data.images.map(img => img.imageUrl);
-          setThumbnails(imageUrls);
-          const primaryImage = data.images.find(img => img.isPrimary);
-          setMainImage(primaryImage ? primaryImage.imageUrl : imageUrls[0]);
-        }
-
-        if (data.categoryId) {
-          try {
-            const similar = await fetchProducts({
-              category: data.categoryId,
-              limit: 4,
-              exclude: productId
-            });
-            setSimilarProducts(similar);
-          } catch (error) {
-            console.error('Error fetching similar products:', error);
-          }
-        }
-
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching product:', error);
-        setLoading(false);
-      }
-    };
-
-    if (params.id) {
-      fetchProductData();
-    }
-  }, [params.id, currentUser]);
-
-  useEffect(() => {
     const element = imageContainerRef.current;
     if (!element) return;
 
@@ -557,42 +578,6 @@ const ProductDetail = () => {
   const handleStarLeave = () => {
     setHoveredRating(0);
   };
-
-  useEffect(() => {
-    const fetchRatingData = async () => {
-      try {
-        if (params.id) {
-          const productReviews = await fetchProductReviews(params.id);
-          setReviews(productReviews);
-          
-          if (productReviews.length > 0) {
-            const averageRating = calculateAverageRating(productReviews);
-            setProduct(prevProduct => ({
-              ...prevProduct,
-              rating: averageRating
-            }));
-            
-            if (currentUser) {
-              const userReview = productReviews.find(review => 
-                review.userId === currentUser.id
-              );
-              if (userReview) {
-                setHasUserReviewed(true);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching product rating:', error);
-      }
-    };
-
-    fetchRatingData();
-    
-    const intervalId = setInterval(fetchRatingData, 30000);
-    
-    return () => clearInterval(intervalId);
-  }, [params.id, currentUser]);
 
   if (loading) {
     return (

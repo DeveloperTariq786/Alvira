@@ -20,6 +20,7 @@ const PaymentPage = () => {
   const [loading, setLoading] = useState(true);
   const [orderId, setOrderId] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('online'); // cod or online
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     // Load Razorpay script
@@ -88,13 +89,19 @@ const PaymentPage = () => {
       }
     };
 
-    const fetchCartItems = async () => {
+    const fetchInitialData = async () => {
       try {
-        const items = await getCartItems();
+        const [items, profile] = await Promise.all([
+          getCartItems(),
+          getUserProfile(),
+        ]);
+        
         setCartItems(Array.isArray(items) ? items : []);
         calculateTotals(Array.isArray(items) ? items : []);
+        setUserProfile(profile);
+
       } catch (error) {
-        console.error('Error fetching cart items:', error);
+        console.error('Error fetching initial data:', error);
         setCartItems([]);
         calculateTotals([]);
       } finally {
@@ -105,7 +112,7 @@ const PaymentPage = () => {
       }
     };
 
-    fetchCartItems();
+    fetchInitialData();
   }, []);
 
   const handlePaymentMethodChange = (method) => {
@@ -124,11 +131,13 @@ const PaymentPage = () => {
       return;
     }
     
+    if (!userProfile) {
+      alert('User profile is not loaded yet. Please wait a moment.');
+      return;
+    }
+
     try {
       setLoading(true);
-      
-      // Get user profile for prefill information
-      const userProfile = await getUserProfile();
       
       // Create Razorpay payment using API
       const paymentData = {
@@ -165,6 +174,7 @@ const PaymentPage = () => {
         image: "/logo.jpg", // Use logo.jpg for the Razorpay checkout
         handler: async function (razorpayResponse) {
           try {
+            setLoading(true);
             // Verify payment with backend
             const verificationData = {
               razorpayOrderId: response.order.id,
@@ -180,14 +190,15 @@ const PaymentPage = () => {
               sessionStorage.removeItem('orderSummary');
               await clearCart(); // Clear the cart
               // Redirect to orders page
-              alert(`Payment Successful! Your order has been placed.`);
               router.push('/orders');
             } else {
+              setLoading(false);
               throw new Error('Payment verification failed');
             }
           } catch (error) {
             console.error('Payment verification error:', error);
             alert('Payment verification failed. Please contact support.');
+            setLoading(false);
           }
         },
         modal: {
@@ -291,16 +302,15 @@ const PaymentPage = () => {
           sessionStorage.removeItem('orderSummary');
           await clearCart(); // Clear the cart
           // Show success message and redirect to orders page
-          alert('Order placed successfully! You will pay ₹' + total + ' on delivery.');
           router.push('/orders');
         } else {
+          setLoading(false);
           throw new Error(response.error || 'Failed to create COD payment');
         }
       }
     } catch (error) {
       console.error('Payment error:', error);
       alert('There was an error processing your payment: ' + (error.message || 'Unknown error'));
-    } finally {
       setLoading(false);
     }
   };

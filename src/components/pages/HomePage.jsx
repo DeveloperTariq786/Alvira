@@ -14,34 +14,33 @@ import SummerCollectionSection from '@/components/sections/SummerCollectionSecti
 import BestsellersSection from '@/components/sections/BestsellersSection';
 import InstagramFeedSection from '@/components/sections/InstagramFeedSection';
 import WhatsAppButton from '@/components/ui/WhatsAppButton';
-import { usePromotions } from '@/hooks/usePromotions';
-import { useCategories } from '@/hooks/useCategories';
-import { useSummerCollection } from '@/hooks/useSummerCollection';
-import { useQueryClient } from '@tanstack/react-query';
-import { logger } from '@/utils/config';
+import useHomeStore from '@/store/home';
 import { instagramFeed } from '@/constants/data';
 
 const HomePage = () => {
-  const queryClient = useQueryClient();
-  const { data: heroSlides, isLoading: isHeroLoading, error: heroError } = usePromotions();
-  const { data: categories, isLoading: isCategoriesLoading, error: categoriesError } = useCategories();
-  const { 
-    data: summerCollection, 
-    isLoading: isSummerCollectionLoading, 
-    error: summerCollectionError,
-    refetch: refetchSummerCollection
-  } = useSummerCollection();
+  const {
+    heroSlides,
+    categories,
+    summerCollection,
+    loading,
+    error,
+    fetchHomePageData,
+  } = useHomeStore();
+
+  useEffect(() => {
+    fetchHomePageData();
+  }, [fetchHomePageData]);
 
   const renderHeroSection = () => {
-    if (isHeroLoading) {
+    if (loading && !heroSlides.length) {
       return <HeroCarouselSkeleton />;
     }
     
-    if (heroError) {
+    if (error && !heroSlides.length) {
       return (
         <ErrorState 
-          message={`Unable to load featured collections. ${heroError.message}`} 
-          retryFn={() => queryClient.invalidateQueries(['promotions'])} 
+          message="Unable to load featured collections." 
+          retryFn={fetchHomePageData} 
         />
       );
     }
@@ -50,15 +49,15 @@ const HomePage = () => {
   };
 
   const renderCategorySection = () => {
-    if (isCategoriesLoading) {
+    if (loading && !categories.length) {
       return <CategorySkeleton />;
     }
     
-    if (categoriesError) {
+    if (error && !categories.length) {
       return (
         <ErrorState 
-          message={`Unable to load categories. ${categoriesError.message}`} 
-          retryFn={() => queryClient.invalidateQueries(['categories'])} 
+          message="Unable to load categories."
+          retryFn={fetchHomePageData}
         />
       );
     }
@@ -67,15 +66,15 @@ const HomePage = () => {
   };
 
   const renderSummerCollection = () => {
-    if (isSummerCollectionLoading) {
+    if (loading && !summerCollection) {
       return <LoadingState message="Loading summer collection..." />;
     }
     
-    if (summerCollectionError && !summerCollection) {
+    if (error && !summerCollection) {
       return (
         <ErrorState 
-          message={`Unable to load summer collection. ${summerCollectionError.message}`} 
-          retryFn={refetchSummerCollection}
+          message="Unable to load summer collection." 
+          retryFn={fetchHomePageData}
         />
       );
     }
@@ -86,7 +85,7 @@ const HomePage = () => {
   return (
     <main className="min-h-screen">
       <Header />
-      <section className="pt-16"> {/* Add padding-top to account for fixed header */}
+      <section className="pt-16">
         {renderHeroSection()}
       </section>
       {renderCategorySection()}
